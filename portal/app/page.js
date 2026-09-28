@@ -237,7 +237,6 @@ export default function HomePage() {
                     <span className="text-gray-400">📁</span>
                     <span className="font-semibold text-gray-900">Enterprise Proposal (Acme Corp)</span>
                   </div>
-                  <span className="text-gray-500 font-mono">18 files • S3 Linked</span>
                 </div>
 
                 <div className="mt-4 space-y-3">
@@ -296,9 +295,6 @@ export default function HomePage() {
               <div className="mt-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
                 <div className="flex items-center justify-between border-b border-gray-150 pb-2.5 text-xs">
                   <span className="font-semibold text-gray-900">Leak Deterrence Verification</span>
-                  <span className="font-mono text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
-                    Active Protection
-                  </span>
                 </div>
 
                 <div className="mt-3.5 grid grid-cols-2 gap-2.5">

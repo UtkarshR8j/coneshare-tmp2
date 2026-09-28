@@ -1,3 +1,6 @@
+import Link from 'next/link';
+import { features } from '../lib/content';
+
 export function Footer() {
   const footerSections = [
     {
@@ -8,10 +11,18 @@ export function Footer() {
         { label: 'Nextcloud Integration', href: '/integrations/nextcloud' },
         { label: 'Google Drive Integration', href: '/integrations/google-drive' },
         { label: 'Dropbox Integration', href: '/integrations/dropbox' },
-        { label: 'Features', href: '/features' },
         { label: 'Solutions', href: '/solutions' },
         { label: 'Get Started', href: 'https://app.coneshare.com/signup', external: true },
       ],
+    },
+    {
+      title: 'Features',
+      links: features
+        .filter((feature) => feature.slug !== 'self-hosted')
+        .map((feature) => ({
+          label: feature.menuName || feature.name,
+          href: `/features/${feature.slug}`,
+        })),
     },
     {
       title: 'Resources',
@@ -31,12 +42,6 @@ export function Footer() {
         { label: 'Live Demo', href: '/demo' },
         { label: 'Contact Sales', href: 'mailto:sales@coneshare.com' },
         { label: 'Support', href: 'mailto:dev@coneshare.com' },
-        { label: 'Security Contact', href: 'mailto:dev@coneshare.com' },
-      ],
-    },
-    {
-      title: 'Legal',
-      links: [
         { label: 'Terms', href: '/terms' },
         { label: 'Privacy Policy', href: '/privacy-policy' },
       ],
@@ -68,13 +73,23 @@ export function Footer() {
                 <ul className="mt-4 space-y-3">
                   {section.links.map((link) => (
                     <li key={link.label}>
-                      <a
-                        href={link.href}
-                        className="text-sm text-gray-600 transition-colors hover:text-gray-900"
-                        {...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                      >
-                        {link.label}
-                      </a>
+                      {link.external ? (
+                        <a
+                          href={link.href}
+                          className="text-sm text-gray-600 transition-colors hover:text-gray-900"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {link.label}
+                        </a>
+                      ) : (
+                        <Link
+                          href={link.href}
+                          className="text-sm text-gray-600 transition-colors hover:text-gray-900"
+                        >
+                          {link.label}
+                        </Link>
+                      )}
                     </li>
                   ))}
                 </ul>

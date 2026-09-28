@@ -33,29 +33,87 @@ export const features = [
   },
   {
     slug: 'advanced-analytics',
-    name: 'Engagement Awareness',
-    menuName: 'Engagement Awareness',
-    description: 'Understand how prospects interact with your content through real-time and page-level activity insights.',
-    bestFor: 'Revenue teams and founders prioritizing high-intent follow-ups',
-    primarySignal: 'Real-time views, revisits, downloads, and page-level behavior',
-    businessOutcome: 'Prioritize outreach using actual engagement context',
+    name: 'Page-by-Page & Engagement Analytics',
+    menuName: 'Engagement Analytics',
+    description: 'Track second-by-second reading time per slide, monitor buyer intent across dataroom documents, and get alerted the moment critical proposals are opened or revisited.',
+    bestFor: 'Founders, deal leads, commercial sales teams, and legal counsel managing confidential reviews',
+    primarySignal: 'Slide dwell time, visitor session audit logs, link clicks, and real-time viewing alerts',
+    businessOutcome: 'Lead follow-up calls with exact engagement context instead of guessing buyer interest',
     relatedSolutionSlugs: ['engagement-visibility', 'timely-follow-ups'],
     workflowSteps: [
-      'Share proposal, deck, or dataroom link with target accounts.',
-      'Coneshare captures event-level activity in real time.',
-      'Team reviews page-level engagement to identify intent.',
-      'Reps prioritize follow-ups using engagement depth signals.',
+      'Share a proposal, deck, or dataroom link with prospective clients or investors.',
+      'Coneshare captures per-slide dwell times, completion rates, and link clicks as they read.',
+      'Review individual visitor session logs to see who visited, from which location, and what kept their focus.',
+      'Receive instant Slack, email, or webhook notifications when files are opened, re-opened, or downloaded.',
     ],
     icon: LineChart,
     content: (
-       <div>
-        <h3 className="text-xl font-semibold mb-4">Real-Time Activity Notifications</h3>
-        <p className="mb-4">Receive immediate event notifications when your shared documents are viewed, downloaded, or revisited so your team can follow up with strong timing.</p>
-        <Image src="/screenshots/feat-notification.png" alt="Screenshot of real time view notifications" width={1200} height={750} className="my-6 rounded-lg shadow-lg border" />
+      <div>
+        <h3 className="text-xl font-semibold mb-3">1. Second-by-second slide and page dwell time</h3>
+        <p className="mb-4">
+          Standard drive links tell you nothing after a file is sent. Coneshare breaks down every reading session page by page, measuring exact viewing duration and completion rates across presentations, financial models, and legal contracts.
+        </p>
+        <p className="mb-4">
+          By comparing time spent across slides, sales and deal teams can immediately identify high-intent hooks. If a client spends four minutes inspecting your pricing schedule and implementation roadmap while skimming past the introduction, you know precisely where to focus your follow-up conversation.
+        </p>
 
-        <h3 className="text-xl font-semibold mb-4">Page-by-Page Analytics</h3>
-        <p>See what content resonates with detailed page-level analytics, including time spent and completion rate. Understand engagement context before every follow-up conversation.</p>
-        <Image src="/screenshots/feat-analytics.png" alt="Screenshot of document analytics and viewer insights" width={1200} height={750} className="my-6 rounded-lg shadow-lg border" />
+        <h3 className="text-xl font-semibold mt-10 mb-3">2. Detailed visitor session logs and dataroom audit trails</h3>
+        <p className="mb-4">
+          Every document opening creates a structured session record. You can see the viewer&apos;s verified email, geographic location, IP address, device, and operating system alongside their visit timestamp.
+        </p>
+        <p className="mb-4">
+          In virtual data rooms, Coneshare tracks navigation across the entire folder hierarchy. You can see which specific documents were inspected, which folders were explored, and whether confidential assets were downloaded or printed. When links are forwarded to unlisted colleagues, new visitor sessions appear automatically, giving your team early visibility into internal buying committees.
+        </p>
+
+        <div className="my-6">
+          <ZoomableImage
+            src="/screenshots/feat-visitor-sessions.png"
+            alt="Visitor session logs with verification, duration, and dataroom navigation history"
+            width={1512}
+            height={953}
+            className="rounded-lg shadow-lg border border-gray-200"
+          />
+          <p className="mt-2 text-center text-xs text-gray-500">
+            Visitor session audit trail: inspect individual access logs, verified recipient details, completion rates, and folder activity.
+          </p>
+        </div>
+
+        <h3 className="text-xl font-semibold mt-10 mb-3">3. In-document link clicks and video telemetry</h3>
+        <p className="mb-4">
+          Engagement tracking extends beyond static pages:
+        </p>
+        <ul className="list-disc pl-5 space-y-2 mb-4 text-sm text-gray-700">
+          <li>
+            <strong>Link click tracking:</strong> Monitor when reviewers click embedded URLs, demo links, calendar invites, or appendix references directly within your documents.
+          </li>
+          <li>
+            <strong>Video playback telemetry:</strong> For shared walkthroughs and demo recordings, Coneshare captures playback timespans, watch duration, scrubbing intervals, audio mute states, and playback speed.
+          </li>
+          <li>
+            <strong>Spreadsheet inspection:</strong> See when reviewers open financial sheets and tabular models without exposing raw unprotected workbooks.
+          </li>
+        </ul>
+
+        <h3 className="text-xl font-semibold mt-10 mb-3">4. Real-time event alerts and team notifications</h3>
+        <p className="mb-4">
+          Momentum matters in competitive deals. Coneshare delivers instant alerts through email, Slack channels, and custom webhooks the second an external stakeholder interacts with your content.
+        </p>
+        <p className="mb-4">
+          Get notified when an investor revisits your pitch deck after days of silence, when a client downloads a master agreement, or when multiple sessions originate from an unexpected corporate domain. Your team can coordinate follow-ups while your proposal is still active on their screen.
+        </p>
+
+        <div className="my-6">
+          <ZoomableImage
+            src="/screenshots/feat-notification.png"
+            alt="Real-time document view and engagement notifications"
+            width={1259}
+            height={883}
+            className="rounded-lg shadow-lg border border-gray-200"
+          />
+          <p className="mt-2 text-center text-xs text-gray-500">
+            Real-time activity alerts: trigger coordinated outreach the moment external prospects review your materials.
+          </p>
+        </div>
       </div>
     )
   },
@@ -76,14 +134,50 @@ export const features = [
     ],
     icon: Droplets,
     content: (
-      <div>
-        <h3 className="text-xl font-semibold mb-4">Dynamic, Viewer-Specific Content</h3>
-        <p className="mb-4">Automatically embed viewer-specific information into the watermark, such as their email address or IP address, to deter leaks and trace their source.</p>
-        <Image src="/screenshots/feat-watermark.png" alt="Screenshot of dynamic watermarking" width={1200} height={750} className="my-6 rounded-lg shadow-lg border" />
+      <div className="space-y-12">
+        <div>
+          <h3 className="text-xl font-semibold mb-3">1. Viewer-Specific Dynamic Identity and Templates</h3>
+          <p className="text-muted-foreground leading-relaxed mb-4">
+            Static watermarks are easily ignored or covered up. Dynamic watermarking binds each document view to the specific recipient opening it. By interpolating session metadata at the moment of request, Coneshare stamps the visitor verified email, current IP address, and access timestamp directly onto every page.
+          </p>
+          <p className="text-muted-foreground leading-relaxed mb-4">
+            Customize the watermark template with placeholder variables like recipient email and access date, or add custom confidentiality notices. When recipients know their identity is visibly branded across the screen, casual leaking, external forwarding, and unauthorized re-sharing drop significantly.
+          </p>
+          <ZoomableImage
+            src="/screenshots/feat-watermark.png"
+            alt="Dynamic watermark configuration with viewer identity fields and preview"
+            width={1200}
+            height={750}
+            className="my-6 rounded-lg shadow-lg border"
+          />
+        </div>
 
-        <h3 className="text-xl font-semibold mb-4">Pervasive Protection</h3>
-        <p>Watermarks are tiled across the entire document and applied to both in-browser previews and downloaded PDF files, ensuring persistent protection of your intellectual property.</p>
-        <Image src="/screenshots/feat-watermark2.png" alt="Screenshot of dynamic watermarking" width={1200} height={750} className="my-6 rounded-lg shadow-lg border" />
+        <div>
+          <h3 className="text-xl font-semibold mb-3">2. Multi-Surface Anti-Leak Burn-In</h3>
+          <p className="text-muted-foreground leading-relaxed mb-4">
+            A watermark that only sits on the bottom corner of a browser window is easily cropped out. Coneshare renders watermarks using a repeating diagonal matrix across the entire document canvas. The text opacity, angle, and density are balanced to maintain complete readability while making it impossible to crop or photograph a meaningful section without capturing recipient identity.
+          </p>
+          <p className="text-muted-foreground leading-relaxed mb-4">
+            Protection remains consistent regardless of how the file is accessed. The dynamic stamp is burned directly into vector in-browser previews as well as generated PDF downloads. Even if a viewer captures an offline snapshot, every page retains verifiable provenance that traces back to their individual viewing session.
+          </p>
+          <ZoomableImage
+            src="/screenshots/feat-watermark2.png"
+            alt="Diagonal repeating watermark rendered across document preview"
+            width={1200}
+            height={750}
+            className="my-6 rounded-lg shadow-lg border"
+          />
+        </div>
+
+        <div>
+          <h3 className="text-xl font-semibold mb-3">3. Granular Link Controls and Download Locks</h3>
+          <p className="text-muted-foreground leading-relaxed mb-4">
+            Security requirements differ between internal advisors and external counterparties. You can toggle watermarking independently for individual links or across entire dataroom folders. Set watermarks on external pitch links while leaving clean copies for signed partners, all without duplicating underlying files.
+          </p>
+          <p className="text-muted-foreground leading-relaxed">
+            Combine watermarking with download restrictions to create a secure preview-only environment. Recipients review high-fidelity documents directly in their browser with their identity stamped across every sheet, while raw source files remain safeguarded against offline extraction.
+          </p>
+        </div>
       </div>
     )
   },
