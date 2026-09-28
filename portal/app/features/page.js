@@ -24,7 +24,7 @@ const layerGroups = [
   {
     title: 'Control Layer',
     description: 'Add controlled sharing for sensitive external distribution.',
-    slugs: ['secure-sharing', 'dynamic-watermarking', 'file-requests'],
+    slugs: ['secure-sharing', 'dynamic-watermarking', 'online-document-preview', 'file-requests'],
   },
   {
     title: 'Intelligence Layer',
