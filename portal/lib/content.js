@@ -1,5 +1,6 @@
-import { ShieldCheck, LineChart, Droplets, HardDrive, Folders, Cloud, UploadCloud, TrendingUp, Landmark, Target, Workflow, Clock3 } from 'lucide-react';
+import { ShieldCheck, LineChart, Droplets, HardDrive, Folders, Cloud, UploadCloud, TrendingUp, Landmark, Target, Workflow, Clock3, FileText, MessageSquare, Sliders, Palette, Link2 } from 'lucide-react';
 import Image from 'next/image';
+import { ZoomableImage } from '../components/ZoomableImage';
 
 export const features = [
   {
@@ -90,27 +91,122 @@ export const features = [
     slug: 'virtual-data-rooms',
     name: 'Virtual Data Rooms (VDRs)',
     menuName: 'Virtual Data Rooms',
-    description: 'Organize, manage, and share collections of documents and folders in a secure, structured environment.',
-    bestFor: 'Transaction, fundraising, and diligence workflows',
-    primarySignal: 'Activity across dataroom folders and shared files',
-    businessOutcome: 'Run organized, secure deal processes with better visibility',
+    description: 'Share organized folders, generate separate links with independent permissions, answer diligence questions in context, and brand the room on your own terms.',
+    bestFor: 'Commercial transactions, investor diligence, client deliverables, and compliance reviews',
+    primarySignal: 'Views and downloads across room folders, individual links, and Q&A threads',
+    businessOutcome: 'Run structured reviews without duplicating files or leaking sensitive materials to the wrong parties',
     relatedSolutionSlugs: ['deal-visibility', 'secure-fundraising'],
     workflowSteps: [
-      'Create dataroom structure and organize files by diligence stage.',
-      'Apply folder and file-level controls for each share link.',
-      'Track buyer activity across room sections and key files.',
-      'Adjust next interactions using dataroom engagement context.',
+      'Build a folder structure and arrange documents in diligence order.',
+      'Create separate share links with their own folder rules, passwords, and watermarks.',
+      'Answer questions in link-scoped threads directly alongside the files.',
+      'Set room banners, brand colors, file numbers, and storage limits.',
     ],
     icon: Folders,
     content: (
       <div>
-        <h3 className="text-xl font-semibold mb-4">Easy Setup and Management</h3>
-        <p>Create and organize unlimited data rooms in minutes. Add existing documents, create nested folders, and manage content with an intuitive interface.</p>
-        <Image src="/screenshots/feat-vdr-add-content.png" alt="Screenshot of virtual dataroom" width={1200} height={750} className="my-6 rounded-lg shadow-lg border" />
+        <h3 className="text-xl font-semibold mb-3">1. Multiple links with independent access rules</h3>
+        <p className="mb-4">
+          One room can serve buyers, lenders, and legal teams without copying files into separate folders. Coneshare lets you create multiple links for the same room. Each link has its own password, expiration date, and optional NDA gate.
+        </p>
 
-        <h3 className="text-xl font-semibold mb-4">Granular Link Permissions</h3>
-        <p className="mb-4">When sharing a data room, you retain fine-grained control. Set unique visibility, download, and watermarking rules for every individual file and folder within that specific share link.</p>
-        <Image src="/screenshots/feat-vdr-manage-perm.png" alt="Screenshot of virtual dataroom" width={1200} height={750} className="my-6 rounded-lg shadow-lg border" />
+        <div className="my-6">
+          <ZoomableImage
+            src="/screenshots/feat-vdr-multi-link.png"
+            alt="Managing multiple share links for a single dataroom"
+            width={1524}
+            height={904}
+            className="rounded-lg shadow-lg border border-gray-200"
+          />
+          <p className="mt-2 text-center text-xs text-gray-500">
+            Link manager: create separate access points with individual names, rules, and viewer counts.
+          </p>
+        </div>
+
+        <p className="mb-4">
+          You can adjust visibility folder by folder. A prospective partner can see the product roadmap and technical architecture while financial audits and cap tables stay hidden until contracts are signed.
+        </p>
+
+        <div className="my-6">
+          <ZoomableImage
+            src="/screenshots/feat-vdr-manage-perm.png"
+            alt="Setting folder and document permissions per share link"
+            width={1335}
+            height={882}
+            className="rounded-lg shadow-lg border border-gray-200"
+          />
+          <p className="mt-2 text-center text-xs text-gray-500">
+            Permission table: set view, download, and watermark rules for each folder and file.
+          </p>
+        </div>
+
+        <h3 className="text-xl font-semibold mt-10 mb-3">2. In-room questions and answers</h3>
+        <p className="mb-4">
+          Diligence questions often get buried in email threads or tracked in out-of-sync spreadsheets. Coneshare puts a Q&amp;A panel directly inside the data room viewer. Reviewers can ask questions about specific items, and room owners can reply from a single dashboard.
+        </p>
+        <p className="mb-4">
+          Threads are scoped to each link. Competing buyers never see each other's questions or responses. You can also turn Q&amp;A off for specific links when a reviewer only needs view-only access.
+        </p>
+
+        <div className="my-6">
+          <ZoomableImage
+            src="/screenshots/feat-vdr-qna.png"
+            alt="Q&A management dashboard with status tracking and thread replies"
+            width={1538}
+            height={951}
+            className="rounded-lg shadow-lg border border-gray-200"
+          />
+          <p className="mt-2 text-center text-xs text-gray-500">
+            Q&amp;A manager: reply to reviewer questions, track open and closed threads, and filter by share link.
+          </p>
+        </div>
+
+        <h3 className="text-xl font-semibold mt-10 mb-3">3. Room branding and governance</h3>
+        <p className="mb-4">
+          Room settings control appearance and operational boundaries:
+        </p>
+        <ul className="list-disc pl-5 space-y-2 mb-4 text-sm text-gray-700">
+          <li>
+            <strong>Banner and colors:</strong> Upload a deal banner and match the room's header, buttons, and accents to your brand or project palette.
+          </li>
+          <li>
+            <strong>File indexing:</strong> Turn on hierarchical outline numbers (1.0, 1.1, 2.0) across folders and documents to match legal review standards.
+          </li>
+          <li>
+            <strong>Storage quotas:</strong> Set a maximum storage limit on each room to manage capacity on your host server or cloud bucket.
+          </li>
+        </ul>
+
+        <div className="my-6">
+          <ZoomableImage
+            src="/screenshots/feat-vdr-settings.png"
+            alt="Dataroom settings panel with custom branding, quotas, and display options"
+            width={1529}
+            height={963}
+            className="rounded-lg shadow-lg border border-gray-200"
+          />
+          <p className="mt-2 text-center text-xs text-gray-500">
+            Settings panel: upload banners, pick colors, set storage quotas, and toggle file index numbers.
+          </p>
+        </div>
+
+        <h3 className="text-xl font-semibold mt-10 mb-3">4. Folder setup and document organization</h3>
+        <p className="mb-4">
+          Build and organize rooms in minutes. Import existing folders, add files in batches from your storage vaults, star important documents, and drag items to reorder the tree.
+        </p>
+
+        <div className="my-6">
+          <ZoomableImage
+            src="/screenshots/feat-vdr-add-content.png"
+            alt="Organizing folders and documents inside the virtual dataroom"
+            width={1278}
+            height={913}
+            className="rounded-lg shadow-lg border border-gray-200"
+          />
+          <p className="mt-2 text-center text-xs text-gray-500">
+            Room tree: reorder folders by drag-and-drop, star key files, and import documents from local or connected cloud storage.
+          </p>
+        </div>
       </div>
     )
   },
@@ -224,7 +320,168 @@ export const features = [
       </div>
     )
   },
+  {
+    slug: 'online-document-preview',
+    name: 'Multi-Format Online Preview',
+    menuName: 'Online Preview',
+    description: 'Preview PDFs, Office presentations, spreadsheets, high-efficiency images, and videos directly in any browser with zero client installs and dynamic watermark protection.',
+    bestFor: 'Dealmakers, founders, legal counsel, and consultants sharing diverse file types with external stakeholders',
+    primarySignal: 'Frictionless, instant browser preview across desktop, tablet, and mobile',
+    businessOutcome: 'Accelerate deal and document review without requiring external parties to download files or install software',
+    relatedSolutionSlugs: ['secure-fundraising', 'engagement-visibility', 'deal-visibility'],
+    workflowSteps: [
+      'Upload documents, spreadsheets, presentations, media, or raw datasets.',
+      'Coneshare background workers automatically generate high-fidelity browser previews.',
+      'External recipients view files instantly in their browser with dynamic watermarks and access rules.',
+      'Optional download locks ensure proprietary files cannot be saved locally.',
+    ],
+    icon: FileText,
+    content: (
+      <div>
+        <h3 className="text-xl font-semibold mb-4">Zero-Install Universal Viewer</h3>
+        <p className="mb-4">
+          External recipients do not need Microsoft Office, specialized spreadsheet tools, or proprietary media players. Every document renders vector-sharp in modern desktop and mobile browsers, ensuring immediate review without friction.
+        </p>
 
+        <h3 className="text-xl font-semibold mb-4">Comprehensive Format Support</h3>
+        <p className="mb-4 text-sm text-gray-600">
+          Every format renders directly in the browser with high-fidelity typography, responsive controls, and zero client installation.
+        </p>
+
+        <div className="not-prose my-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {/* 1. PDF Documents */}
+          <div className="flex flex-col justify-between rounded-xl border border-gray-200 bg-gray-50/70 p-5 shadow-sm">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-mono font-bold text-red-700">PDF</span>
+                <span className="text-[11px] font-mono text-gray-400">.pdf</span>
+              </div>
+              <h4 className="mt-2 text-base font-bold text-gray-900">PDF Documents</h4>
+              <p className="mt-1 text-xs text-gray-600">
+                Vector-sharp typography, responsive multi-page layout, and dynamic watermarks across every rendered page.
+              </p>
+            </div>
+            {/* Screenshot: PDF */}
+            <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+              <ZoomableImage
+                src="/screenshots/preview-pdf.png"
+                alt="Online PDF preview with responsive pagination"
+                width={1292}
+                height={737}
+                className="w-full h-auto object-cover rounded-lg"
+              />
+            </div>
+          </div>
+
+          {/* 2. Word & PowerPoint Documents */}
+          <div className="flex flex-col justify-between rounded-xl border border-gray-200 bg-gray-50/70 p-5 shadow-sm">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-mono font-bold text-blue-700">DOCX &amp; PPTX</span>
+                <span className="text-[11px] font-mono text-gray-400">.docx, .pptx</span>
+              </div>
+              <h4 className="mt-2 text-base font-bold text-gray-900">Word &amp; Presentations</h4>
+              <p className="mt-1 text-xs text-gray-600">
+                Faithful font rendering, slide navigation, and layout preservation without requiring Microsoft Office.
+              </p>
+            </div>
+            {/* Screenshot: DOCX */}
+            <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+              <ZoomableImage
+                src="/screenshots/preview-docx.png"
+                alt="Online Word document and presentation preview"
+                width={1295}
+                height={733}
+                className="w-full h-auto object-cover rounded-lg"
+              />
+            </div>
+          </div>
+
+          {/* 3. Spreadsheets & CSV */}
+          <div className="flex flex-col justify-between rounded-xl border border-gray-200 bg-gray-50/70 p-5 shadow-sm">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-mono font-bold text-emerald-800">SPREADSHEET</span>
+                <span className="text-[11px] font-mono text-gray-400">.xlsx, .csv</span>
+              </div>
+              <h4 className="mt-2 text-base font-bold text-gray-900">Spreadsheets &amp; Financials</h4>
+              <p className="mt-1 text-xs text-gray-600">
+                Interactive tabular browsing with multiple sheets, formula results, and freeze pane preservation.
+              </p>
+            </div>
+            {/* Screenshot: Spreadsheet */}
+            <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+              <ZoomableImage
+                src="/screenshots/preview-spreadsheet.png"
+                alt="Online Excel and CSV spreadsheet preview"
+                width={1296}
+                height={735}
+                className="w-full h-auto object-cover rounded-lg"
+              />
+            </div>
+          </div>
+
+          {/* 4. High-Efficiency Images & HEIC */}
+          <div className="flex flex-col justify-between rounded-xl border border-gray-200 bg-gray-50/70 p-5 shadow-sm">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-mono font-bold text-amber-800">IMAGE &amp; HEIC</span>
+                <span className="text-[11px] font-mono text-gray-400">.heic, .png, .jpg</span>
+              </div>
+              <h4 className="mt-2 text-base font-bold text-gray-900">Images &amp; Mobile Photos</h4>
+              <p className="mt-1 text-xs text-gray-600">
+                Automatic server-side decoding of Apple HEIC/HEIF files alongside standard high-resolution web formats.
+              </p>
+            </div>
+            {/* Screenshot: Image */}
+            <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+              <ZoomableImage
+                src="/screenshots/preview-image.png"
+                alt="High-efficiency HEIC and image viewer preview"
+                width={1533}
+                height={819}
+                className="w-full h-auto object-cover rounded-lg"
+              />
+            </div>
+          </div>
+
+          {/* 5. Streaming Video Player */}
+          <div className="flex flex-col justify-between rounded-xl border border-gray-200 bg-gray-50/70 p-5 shadow-sm sm:col-span-2">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-mono font-bold text-purple-700">VIDEO</span>
+                <span className="text-[11px] font-mono text-gray-400">.mp4, .mov, .webm</span>
+              </div>
+              <h4 className="mt-2 text-base font-bold text-gray-900">In-Browser Video Playback</h4>
+              <p className="mt-1 text-xs text-gray-600">
+                Stream product walkthroughs, architecture overviews, and demo clips with adaptive HTML5 controls and protected streaming.
+              </p>
+            </div>
+            {/* Video Screenshot */}
+            <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+              <ZoomableImage
+                src="/screenshots/preview-video.png"
+                alt="In-browser video streaming preview"
+                width={1376}
+                height={761}
+                className="w-full h-auto object-cover rounded-lg"
+              />
+            </div>
+          </div>
+        </div>
+
+        <h3 className="text-xl font-semibold mb-4">Security &amp; Dynamic Watermarking on Previews</h3>
+        <p className="mb-4">
+          Online previewing does not mean compromising security. Coneshare renders documents server-side and dynamically stamps the viewer&apos;s verified email and timestamp diagonally across every page canvas. When download is disabled, the recipient can inspect every slide or cell, but cannot export or extract the raw underlying file.
+        </p>
+
+        <h3 className="text-xl font-semibold mb-4">Seamless Page-Level Tracking</h3>
+        <p>
+          Because presentations and documents are rendered slide by slide, Coneshare captures second-by-second reading time on each page. You know precisely when a reviewer reviewed the financial projections in an Excel sheet or paused on a key slide in a PowerPoint deck.
+        </p>
+      </div>
+    )
+  },
 ];
 
 export const solutions = [
