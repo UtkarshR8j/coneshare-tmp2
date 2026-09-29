@@ -65,10 +65,10 @@ export default function ZhHomePage() {
               </div>
 
               <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
-                为自主掌握数据主权而生的私有化虚拟资料室
+                数据自主掌控的企业级私有化资料室
               </h1>
               <p className="mt-6 text-lg leading-8 text-gray-600 max-w-2xl mx-auto">
-                无需将机密资料上传至第三方公有云。Coneshare 直接将您的 Nextcloud、私有 S3 或 Google Drive 升级为具备动态水印、访客身份验证与页面级阅读追踪的安全虚拟资料室。
+                告别封闭高价的第三方 SaaS。在您现有的存储设施之上，获得精细的文档权限控制、防泄密水印与逐页阅读洞察。
               </p>
               <div className="mt-10 flex items-center justify-center gap-x-6">
                 <Link
@@ -116,7 +116,7 @@ export default function ZhHomePage() {
                   <span>我们创立 Coneshare 的初衷</span>
                 </div>
                 <p className="italic text-gray-600 leading-relaxed text-[13.5px]">
-                  &ldquo;像 DocSend 这类商业软件，仅查看文件打开记录就每月收取每人 100 美元。我们打造 Coneshare，让团队能够保留原有存储、叠加防泄密动态水印并获得毫秒级阅读追踪，成本却仅有前者的十分之一。&rdquo;
+                  &ldquo;像 DocSend 这样的工具，仅查看谁打开了文件，每人每月就要收取上百美元。我们打造 Coneshare，是希望团队既能保留自有存储，又能获得防泄密动态水印与秒级阅读洞察，而成本还不到前者的十分之一。&rdquo;
                 </p>
                 <div className="mt-3.5 flex flex-wrap items-center gap-3 pt-2.5 border-t border-gray-200/70 text-xs text-gray-500">
                   <Link href="/zh/about" className="font-medium text-gray-900 hover:underline">
@@ -178,9 +178,6 @@ export default function ZhHomePage() {
             <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
               Coneshare 是否适合您的团队？
             </h2>
-            <p className="mt-3 text-base leading-7 text-gray-600">
-              我们始终坦诚地说明 Coneshare 适合哪些场景，以及不适合哪些场景。
-            </p>
           </div>
           <div className="mx-auto mt-10 grid max-w-4xl grid-cols-1 gap-8 md:grid-cols-2">
             <div className="rounded-xl border border-emerald-200/80 bg-white p-6 shadow-sm">
@@ -489,9 +486,6 @@ export default function ZhHomePage() {
             <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
               为方案与客户关键材料赋予真实的访问控制
             </h2>
-            <p className="mt-6 text-lg leading-8 text-gray-600">
-              当普通共享链接无法提供任何审计依据时，Coneshare 为您带来经过验证的访客身份、动态水印与逐页阅读分析。
-            </p>
           </div>
           <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-5xl">
             <dl className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3">

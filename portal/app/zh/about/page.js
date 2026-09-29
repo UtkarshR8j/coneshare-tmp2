@@ -38,12 +38,9 @@ export default function ZhAboutPage() {
           <h1 className="mt-3 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
             掌控文档安全，无需牺牲基础设施自主权
           </h1>
-          <p className="mt-6 text-lg leading-8 text-gray-600">
-            对外分发机密文件时，以往往往要在两个糟糕的选择中妥协：要么发送毫无审计依据的普通云盘链接，要么将文件整体上传到昂贵且封闭的第三方资料室平台。Coneshare 让您直接在现有存储之上获得资料室级权限控制、动态水印与逐页分析。
-          </p>
         </div>
 
-        <section className="mx-auto mt-16 max-w-4xl border-t border-gray-200 pt-12">
+        <section className="mx-auto mt-16 max-w-4xl sm:mt-20">
           <div className="prose prose-lg max-w-none text-gray-700">
             <h2 className="text-gray-900">我们解决的核心痛点</h2>
             <p>
@@ -55,15 +52,15 @@ export default function ZhAboutPage() {
           </div>
         </section>
 
-        <section className="mx-auto mt-14 max-w-4xl border-t border-gray-200 pt-12">
+        <section className="mx-auto mt-16 max-w-4xl border-t border-gray-200 pt-12">
           <div className="grid gap-8 lg:grid-cols-12">
             <div className="lg:col-span-4">
               <p className="text-sm font-semibold uppercase tracking-wide text-gray-600">技术理念</p>
               <h2 className="mt-3 text-2xl font-bold tracking-tight text-gray-900">我们的产品原则</h2>
             </div>
-            <div className="divide-y divide-gray-200 lg:col-span-8">
+            <div className="space-y-8 lg:col-span-8">
               {principles.map((principle, index) => (
-                <div key={principle.title} className="grid gap-4 py-6 first:pt-0 sm:grid-cols-12">
+                <div key={principle.title} className="grid gap-4 sm:grid-cols-12">
                   <p className="text-sm font-semibold text-gray-400 sm:col-span-2">
                     {String(index + 1).padStart(2, '0')}
                   </p>
@@ -77,7 +74,37 @@ export default function ZhAboutPage() {
           </div>
         </section>
 
-        <section className="mx-auto mt-14 max-w-4xl">
+        <section className="mx-auto mt-16 max-w-4xl border-t border-gray-200 pt-12">
+          <div className="grid gap-8 lg:grid-cols-12">
+            <div className="lg:col-span-4">
+              <p className="text-sm font-semibold uppercase tracking-wide text-gray-600">面向未来</p>
+              <h2 className="mt-3 text-2xl font-bold tracking-tight text-gray-900">AI 时代的研发与产品理念</h2>
+            </div>
+            <div className="space-y-6 lg:col-span-8">
+              <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-6 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900 text-white text-sm font-bold">1</span>
+                  <h3 className="text-base font-semibold text-gray-900">借助 AI 提升研发效率，把节省的成本返还给用户</h3>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-gray-600">
+                  我们在日常研发与测试中深度使用 AI 编程工具，让小团队也能以更低的人力负担、远快于传统团队的节奏交付稳定可靠的功能。大幅降低的开发与维护成本，直接反映在我们的定价策略上：开源核心版永久免费，企业级私有部署的费用也仅为传统商业 SaaS 的几分之一。
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-6 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900 text-white text-sm font-bold">2</span>
+                  <h3 className="text-base font-semibold text-gray-900">将 AI Agent 融入产品，打造更实用的智能文档空间</h3>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-gray-600">
+                  虚拟资料室不应该只是静态存放和查看文件的地方。Coneshare 正通过标准 MCP（Model Context Protocol）协议对接外部 AI Agent 生态，并在产品内逐步内置文档智能问答、尽调查验助手、内容自动摘要与敏感信息审查，让资料室真正具备主动分析与协同能力。
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto mt-16 max-w-4xl border-t border-gray-200 pt-12">
           <div className="grid gap-8 lg:grid-cols-12">
             <div className="lg:col-span-4">
               <p className="text-sm font-semibold uppercase tracking-wide text-gray-600">适用场景</p>
@@ -93,7 +120,7 @@ export default function ZhAboutPage() {
                   <li>对数据主权和隐私合规有严苛要求的团队，偏好在自有服务器上私有化运行。</li>
                 </ul>
               </div>
-              <div className="border-t border-gray-200 pt-8">
+              <div>
                 <h3 className="text-base font-semibold text-gray-900">不适用的场景</h3>
                 <ul className="mt-4 space-y-3 text-sm leading-6 text-gray-600">
                   <li>普通文件日常传输，标准网盘生成的公共共享链接已完全能满足要求。</li>

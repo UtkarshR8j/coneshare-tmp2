@@ -38,12 +38,9 @@ export default function AboutPage() {
           <h1 className="mt-3 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
             Document control without giving up infrastructure ownership
           </h1>
-          <p className="mt-6 text-lg leading-8 text-gray-600">
-            Sharing sensitive files usually means picking between two poor options: sending plain cloud links with no visibility, or uploading documents into an expensive, closed data room. Coneshare adds data rooms, watermarks, and tracking on top of your existing storage.
-          </p>
         </div>
 
-        <section className="mx-auto mt-16 max-w-4xl border-t border-gray-200 pt-12">
+        <section className="mx-auto mt-16 max-w-4xl sm:mt-20">
           <div className="prose prose-lg max-w-none text-gray-700">
             <h2 className="text-gray-900">The problem we solve</h2>
             <p>
@@ -55,15 +52,15 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className="mx-auto mt-14 max-w-4xl border-t border-gray-200 pt-12">
+        <section className="mx-auto mt-16 max-w-4xl border-t border-gray-200 pt-12">
           <div className="grid gap-8 lg:grid-cols-12">
             <div className="lg:col-span-4">
               <p className="text-sm font-semibold uppercase tracking-wide text-gray-600">Principles</p>
               <h2 className="mt-3 text-2xl font-bold tracking-tight text-gray-900">How we build</h2>
             </div>
-            <div className="divide-y divide-gray-200 lg:col-span-8">
+            <div className="space-y-8 lg:col-span-8">
               {principles.map((principle, index) => (
-                <div key={principle.title} className="grid gap-4 py-6 first:pt-0 sm:grid-cols-12">
+                <div key={principle.title} className="grid gap-4 sm:grid-cols-12">
                   <p className="text-sm font-semibold text-gray-400 sm:col-span-2">
                     {String(index + 1).padStart(2, '0')}
                   </p>
@@ -77,7 +74,37 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className="mx-auto mt-14 max-w-4xl">
+        <section className="mx-auto mt-16 max-w-4xl border-t border-gray-200 pt-12">
+          <div className="grid gap-8 lg:grid-cols-12">
+            <div className="lg:col-span-4">
+              <p className="text-sm font-semibold uppercase tracking-wide text-gray-600">Looking Ahead</p>
+              <h2 className="mt-3 text-2xl font-bold tracking-tight text-gray-900">Engineering & Product Philosophy in the AI Era</h2>
+            </div>
+            <div className="space-y-6 lg:col-span-8">
+              <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-6 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900 text-white text-sm font-bold">1</span>
+                  <h3 className="text-base font-semibold text-gray-900">Building faster with AI, passing the savings to users</h3>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-gray-600">
+                  We use modern AI coding tools and automated testing throughout our development process. This lets our small team ship reliable features much faster than a traditional team, with far lower overhead. Those cost savings go straight into our pricing: our core platform is open source and free forever, while teams get self-hosted enterprise control at a fraction of standard SaaS rates.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-6 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900 text-white text-sm font-bold">2</span>
+                  <h3 className="text-base font-semibold text-gray-900">Integrating AI agents into the workspace</h3>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-gray-600">
+                  A secure data room should do more than just store and display static files. We connect Coneshare to external AI agents through open standards like Model Context Protocol (MCP). We are also building native AI tools directly into the workspace, including document Q&A, diligence review assistants, automatic summaries, and sensitive data inspection.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto mt-16 max-w-4xl border-t border-gray-200 pt-12">
           <div className="grid gap-8 lg:grid-cols-12">
             <div className="lg:col-span-4">
               <p className="text-sm font-semibold uppercase tracking-wide text-gray-600">Fit</p>
@@ -93,7 +120,7 @@ export default function AboutPage() {
                   <li>Security-conscious teams that require self-hosted software for data sovereignty.</li>
                 </ul>
               </div>
-              <div className="border-t border-gray-200 pt-8">
+              <div>
                 <h3 className="text-base font-semibold text-gray-900">Not a good fit for</h3>
                 <ul className="mt-4 space-y-3 text-sm leading-6 text-gray-600">
                   <li>Simple file transfers where a standard cloud share link is enough.</li>

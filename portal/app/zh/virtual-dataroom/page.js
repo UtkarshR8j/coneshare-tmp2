@@ -121,12 +121,8 @@ export default function ZhVirtualDataroomPage() {
             aria-hidden="true"
           />
           <div className="mx-auto max-w-4xl py-20 sm:py-28 text-center">
-            <span className="inline-flex items-center gap-x-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-800">
-              <CheckCircle className="h-3 w-3 text-gray-900" />
-              100% 开源且支持私有化部署的虚拟资料室
-            </span>
-            <h1 className="mt-6 text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
-              安全、自主掌握数据主权的虚拟资料室 (VDR)
+            <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
+              数据自主掌控的企业级私有化资料室 (VDR)
             </h1>
             <p className="mt-6 text-lg leading-8 text-gray-600 max-w-2xl mx-auto">
               在您现有的私有云或本地企业存储之上叠加权限管控、访客阅读分析与跟进自动化。让数据自始至终处于您的绝对控制之下。
@@ -261,7 +257,7 @@ export default function ZhVirtualDataroomPage() {
           <div className="mx-auto max-w-5xl px-6 lg:px-8">
             <div className="mx-auto max-w-3xl text-center mb-16">
               <h2 className="text-3xl font-bold tracking-tight text-gray-900">
-                专为高风险商务协同而打造
+                专为高价值商务协同而打造
               </h2>
               <p className="mt-4 text-base text-gray-600">
                 除基础链接分享外，Coneshare 为团队提供功能完善的专业级虚拟资料室工具。

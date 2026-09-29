@@ -42,7 +42,7 @@ export default function HomePage() {
                 The Self-Hosted Data Room for Teams That Own Their Data
               </h1>
               <p className="mt-6 text-lg leading-8 text-gray-600 max-w-2xl mx-auto">
-                Share confidential documents without sending them to a third-party cloud. Coneshare turns your Nextcloud, private S3, or Google Drive into a trackable virtual data room with dynamic watermarks and verified access.
+                Leave expensive, closed SaaS behind. Get granular document access controls, dynamic watermarks, and page-by-page engagement insights on top of your existing storage.
               </p>
               <div className="mt-10 flex items-center justify-center gap-x-6">
                 <Link
@@ -152,9 +152,6 @@ export default function HomePage() {
             <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
               Is Coneshare right for you?
             </h2>
-            <p className="mt-3 text-base leading-7 text-gray-600">
-              We believe in being upfront about what Coneshare is built for, and what it is not.
-            </p>
           </div>
           <div className="mx-auto mt-10 grid max-w-4xl grid-cols-1 gap-8 md:grid-cols-2">
             <div className="rounded-xl border border-emerald-200/80 bg-white p-6 shadow-sm">
@@ -462,9 +459,6 @@ export default function HomePage() {
             <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
               Share proposals and client materials with real access controls
             </h2>
-            <p className="mt-6 text-lg leading-8 text-gray-600">
-              When basic file links offer no audit trail, Coneshare adds verified viewers, watermarks, and per-page analytics.
-            </p>
           </div>
           <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-5xl">
             <dl className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3">

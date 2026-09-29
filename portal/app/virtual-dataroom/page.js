@@ -121,11 +121,7 @@ export default function VirtualDataroomPage() {
           aria-hidden="true"
         />
         <div className="mx-auto max-w-4xl py-20 sm:py-28 text-center">
-          <span className="inline-flex items-center gap-x-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-800">
-            <CheckCircle className="h-3 w-3 text-gray-900" />
-            100% Self-Hosted &amp; Open Source VDR
-          </span>
-          <h1 className="mt-6 text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
             Secure, Self-Hosted Virtual Dataroom (VDR)
           </h1>
           <p className="mt-6 text-lg leading-8 text-gray-600 max-w-2xl mx-auto">
