@@ -34,3 +34,14 @@
     </>
   );
   ```
+
+### 2026-09-29 Session Entry
+- **Category:** Tooling Update
+- **Context/Implication:** Vitest with jsdom environment and React Testing Library is configured for the Next.js portal package to verify component rendering, navigation, and localization without manual browser/curl inspections.
+- **Resolution/Action:** Run unit tests for portal via `make test.portal` from root, or `cd portal && npm run test:run`. Tests are placed in `portal/src/tests/**/*.test.jsx`.
+
+### 2026-09-29 Session Entry
+- **Category:** Gotcha
+- **Context/Implication:** In Next.js App Router, subroute layouts (`portal/app/zh/layout.js`) nest inside the root layout (`portal/app/layout.js`). Rendering `<Header />` and `<Footer />` in both causes duplicate UI headers/footers to appear on subroute pages.
+- **Resolution/Action:** Mount global layout elements (`<Header />`, `<Footer />`) solely in root `layout.js`, and let components dynamically adapt their localized text and links via `usePathname().startsWith('/zh')`.
+

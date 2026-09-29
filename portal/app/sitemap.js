@@ -1,5 +1,6 @@
 import { features, solutions, integrations } from '../lib/content';
 import { getAllBlogPosts, getAllCategories, getAllTags, getEffectiveCategory, slugifyTerm } from '../lib/blog';
+import { ZH_ALL_ROUTES } from '../lib/i18n';
 
 export const dynamic = 'force-static';
 
@@ -70,6 +71,7 @@ export default async function sitemap() {
     '/virtual-dataroom',
     '/agents',
     '/alternatives/docsend',
+    ...ZH_ALL_ROUTES,
   ].map((route) => ({
     url: `${URL}${route}`,
     lastModified: new Date(),
