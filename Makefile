@@ -30,6 +30,7 @@ help:
 	@echo "  test.front      - Run whitelisted frontend tests with vitest"
 	@echo "  test.core       - Run core service tests with go test"
 	@echo "  test.mcp        - Run mcp server tests with unittest"
+	@echo "  test.portal     - Run portal unit tests with vitest"
 	@echo "  lint.portal     - Run portal linter with eslint"
 	@echo "  lint.docs       - Validate feature docs template sections"
 	@echo "  migrate         - Run database migrations"
@@ -145,6 +146,11 @@ test.core:
 test.mcp:
 	@echo "Running MCP server tests..."
 	COMPOSE_PROJECT_NAME=coneshare docker-compose exec -T mcp_server python -m unittest discover -s tests
+
+.PHONY: test.portal
+test.portal:
+	@echo "Running portal unit tests..."
+	COMPOSE_PROJECT_NAME=coneshare docker-compose exec portal npm run test:run
 
 .PHONY: lint.portal
 lint.portal:

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { features, solutions, integrations } from '../lib/content';
 import { ChevronDown, Menu, X } from 'lucide-react';
 
@@ -78,33 +79,33 @@ function NavDropdown({ title, href, items }) {
   );
 }
 
-const resources = [
+const getResourceMenuItems = (isZh) => [
   {
     key: 'about',
-    name: 'About',
-    href: '/about',
+    name: isZh ? '关于我们' : 'About',
+    href: isZh ? '/zh/about' : '/about',
   },
   {
     key: 'docs',
-    name: 'Docs',
+    name: isZh ? '开发文档' : 'Docs',
     href: 'https://docs.coneshare.com/en/',
     external: true,
   },
   {
     key: 'release-notes',
-    name: 'Release Notes',
+    name: isZh ? '发布说明' : 'Release Notes',
     href: 'https://docs.coneshare.com/en/release-notes/',
     external: true,
   },
   {
     key: 'forum',
-    name: 'Forum',
+    name: isZh ? '社区论坛' : 'Forum',
     href: 'https://github.com/orgs/coneshare/discussions',
     external: true,
   },
   {
     key: 'contribute',
-    name: 'Contribute',
+    name: isZh ? '参与贡献' : 'Contribute',
     href: 'https://github.com/coneshare/coneshare',
     external: true,
   },
@@ -173,19 +174,23 @@ function ResourceDropdown({ title, items }) {
 }
 
 
-export function Header() {
+export function Header({ locale }) {
+  const pathname = usePathname();
+  const isZh = locale === 'zh' || (locale ? false : pathname?.startsWith('/zh'));
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const integrationMenuItems = [
-    { type: 'group', key: 'self-hosted', label: 'Self-hosted' },
+    { type: 'group', key: 'self-hosted', label: isZh ? '支持私有化' : 'Self-hosted' },
     integrations.find((item) => item.slug === 'nextcloud'),
     { type: 'group', key: 'cloud-divider', divider: true },
-    { type: 'group', key: 'cloud', label: 'Cloud Storage' },
+    { type: 'group', key: 'cloud', label: isZh ? '云存储支持' : 'Cloud Storage' },
     integrations.find((item) => item.slug === 'google-drive'),
     integrations.find((item) => item.slug === 'dropbox'),
     { type: 'group', key: 'compare-divider', divider: true },
-    { type: 'group', key: 'compare', label: 'Compare' },
-    { slug: 'docsend', menuName: 'DocSend Alternative', isAlternative: true },
+    { type: 'group', key: 'compare', label: isZh ? '竞品对比' : 'Compare' },
+    { slug: 'docsend', menuName: isZh ? 'DocSend 替代方案' : 'DocSend Alternative', isAlternative: true },
   ].filter(Boolean);
+
+  const resourceMenuItems = getResourceMenuItems(isZh);
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-20">
@@ -193,7 +198,7 @@ export function Header() {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Link href="/">
+              <Link href={isZh ? '/zh' : '/'}>
                 <Image
                   className="h-10 w-auto"
                   src="/logo.svg"
@@ -208,23 +213,26 @@ export function Header() {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex md:items-center md:gap-x-4">
-            <Link href="/virtual-dataroom" className="text-sm font-medium text-gray-500 hover:text-gray-900">
-              Virtual Dataroom
+            <Link
+              href={isZh ? '/zh/virtual-dataroom' : '/virtual-dataroom'}
+              className="text-sm font-medium text-gray-500 hover:text-gray-900"
+            >
+              {isZh ? '虚拟资料室' : 'Virtual Dataroom'}
             </Link>
             <Link href="/agents" className="text-sm font-medium text-gray-500 hover:text-gray-900">
-              Agents
+              {isZh ? '智能体' : 'Agents'}
             </Link>
-            <NavDropdown title="Works with" href="/integrations" items={integrationMenuItems} />
-            <NavDropdown title="Features" href="/features" items={features} />
+            <NavDropdown title={isZh ? '存储生态' : 'Works with'} href="/integrations" items={integrationMenuItems} />
+            <NavDropdown title={isZh ? '功能特性' : 'Features'} href="/features" items={features} />
             <Link href="/blog" className="text-sm font-medium text-gray-500 hover:text-gray-900">
-              Blog
+              {isZh ? '博客' : 'Blog'}
             </Link>
-            <ResourceDropdown title="Resources" items={resources} />
+            <ResourceDropdown title={isZh ? '资源' : 'Resources'} items={resourceMenuItems} />
             <Link
               href="/demo"
               className="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50"
             >
-              Live Demo
+              {isZh ? '在线演示' : 'Live Demo'}
             </Link>
             <Link
               href={signupUrl}
@@ -232,7 +240,7 @@ export function Header() {
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center rounded-md border border-transparent bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-800"
             >
-              Get Started
+              {isZh ? '立即开始' : 'Get Started'}
             </Link>
           </div>
 
@@ -262,22 +270,24 @@ export function Header() {
           <div className="space-y-4 px-4 pb-4 pt-4">
             <div>
               <Link
-                href="/virtual-dataroom"
+                href={isZh ? '/zh/virtual-dataroom' : '/virtual-dataroom'}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900"
               >
-                Virtual Dataroom
+                {isZh ? '虚拟资料室' : 'Virtual Dataroom'}
               </Link>
               <Link
                 href="/agents"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900"
               >
-                Agents
+                {isZh ? '智能体' : 'Agents'}
               </Link>
             </div>
             <div className="border-t border-gray-200 pt-4">
-              <h3 className="px-3 text-xs font-semibold uppercase text-gray-500 tracking-wider">Works with</h3>
+              <h3 className="px-3 text-xs font-semibold uppercase text-gray-500 tracking-wider">
+                {isZh ? '存储生态' : 'Works with'}
+              </h3>
               <div className="mt-2 space-y-1">
                 {integrations
                   .filter((item) => item.slug === 'nextcloud')
@@ -288,7 +298,7 @@ export function Header() {
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                   >
-                    {item.menuName} <span className="text-xs text-gray-500">(Self-hosted)</span>
+                    {item.menuName} <span className="text-xs text-gray-500">({isZh ? '私有化部署' : 'Self-hosted'})</span>
                   </Link>
                   ))}
                 {integrations
@@ -308,12 +318,14 @@ export function Header() {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                 >
-                  DocSend Alternative <span className="text-xs text-gray-500">(Compare)</span>
+                  {isZh ? 'DocSend 替代方案' : 'DocSend Alternative'} <span className="text-xs text-gray-500">({isZh ? '对比' : 'Compare'})</span>
                 </Link>
               </div>
             </div>
             <div>
-              <h3 className="px-3 text-xs font-semibold uppercase text-gray-500 tracking-wider">Features</h3>
+              <h3 className="px-3 text-xs font-semibold uppercase text-gray-500 tracking-wider">
+                {isZh ? '功能特性' : 'Features'}
+              </h3>
               <div className="mt-2 space-y-1">
                 {features.map((item) => (
                   <Link
@@ -328,7 +340,9 @@ export function Header() {
               </div>
             </div>
             <div className="border-t border-gray-200 pt-4">
-              <h3 className="px-3 text-xs font-semibold uppercase text-gray-500 tracking-wider">Use Cases</h3>
+              <h3 className="px-3 text-xs font-semibold uppercase text-gray-500 tracking-wider">
+                {isZh ? '应用场景' : 'Use Cases'}
+              </h3>
               <div className="mt-2 space-y-1">
                 {solutions.map((item) => (
                   <Link
@@ -344,20 +358,22 @@ export function Header() {
             </div>
             <div className="border-t border-gray-200 pt-4 space-y-1">
               <Link href="/blog" className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900">
-                Blog
+                {isZh ? '博客' : 'Blog'}
               </Link>
               <Link
-                href="/about"
+                href={isZh ? '/zh/about' : '/about'}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900"
               >
-                About
+                {isZh ? '关于我们' : 'About'}
               </Link>
             </div>
             <div className="border-t border-gray-200 pt-4">
-              <h3 className="px-3 text-xs font-semibold uppercase text-gray-500 tracking-wider">Resources</h3>
+              <h3 className="px-3 text-xs font-semibold uppercase text-gray-500 tracking-wider">
+                {isZh ? '资源' : 'Resources'}
+              </h3>
               <div className="mt-2 space-y-1">
-                {resources.map((item) => (
+                {resourceMenuItems.map((item) => (
                   <Link
                     key={item.key}
                     href={item.href}
@@ -376,7 +392,7 @@ export function Header() {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="block w-full text-center rounded-md border border-gray-300 px-4 py-2 text-base font-medium text-gray-900 shadow-sm hover:bg-gray-50"
                 >
-                  Live Demo
+                  {isZh ? '在线演示' : 'Live Demo'}
                 </Link>
                <Link
                   href={signupUrl}
@@ -385,7 +401,7 @@ export function Header() {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="mt-3 block w-full text-center rounded-md border border-transparent bg-gray-900 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-gray-800"
                 >
-                  Get Started
+                  {isZh ? '立即开始' : 'Get Started'}
                 </Link>
             </div>
           </div>
