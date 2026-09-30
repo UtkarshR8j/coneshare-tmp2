@@ -1,6 +1,26 @@
 # Changelog
 
 
+## [1.10.0](https://github.com/coneshare/coneshare/compare/v1.9.1...v1.10.0) (2026-09-29)
+
+
+### Features
+
+* **documents:** support HEIC/HEIF image preview and watermarking ([#339](https://github.com/coneshare/coneshare/issues/339)) ([3b03aeb](https://github.com/coneshare/coneshare/commit/3b03aebf10ad619edce1c5fb2359381db0ec4ff4))
+* **documents:** implement interactive multi-sheet spreadsheet preview ([f8a06b4](https://github.com/coneshare/coneshare/commit/f8a06b414b5dbafb8c518378c3915ba8c45986d6))
+* **viewer:** support text selection overlay for server-rendered documents ([9e8cb09](https://github.com/coneshare/coneshare/commit/9e8cb09558e2b0950ebd7adee2ea0740cf60b21d))
+* **i18n:** add French locale support across backend, frontend, and docs ([4f36e24](https://github.com/coneshare/coneshare/commit/4f36e248fced25f51af4731b9d6b6af0e3aea0ee))
+
+
+### Bug Fixes
+
+* **documents:** support .xls preview and prevent PDF renderer hijacking on copies ([0e47a9e](https://github.com/coneshare/coneshare/commit/0e47a9ea17ab0487b6c3dfb7d870c7c9e09522db))
+
+
+### Performance Improvements
+
+* **backend:** optimize video stream transcoding and cap CPU usage ([6d64535](https://github.com/coneshare/coneshare/commit/6d645356d62df877876b25c03db453917c684ddb))
+
 ## [1.9.1](https://github.com/coneshare/coneshare/compare/v1.9.0...v1.9.1) (2026-09-10)
 
 
