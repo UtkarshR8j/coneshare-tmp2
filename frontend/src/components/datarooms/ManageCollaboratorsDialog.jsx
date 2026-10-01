@@ -127,10 +127,11 @@ export function ManageCollaboratorsDialog({
     if (selectedUserIds.length === 0) return;
     setIsAdding(true);
     try {
+      const payload = { user_ids: selectedUserIds };
       if (isAdmin) {
-        await addAdminDataroomCollaborators(dataroom.id, selectedUserIds);
+        await addAdminDataroomCollaborators(dataroom.id, payload);
       } else {
-        await addDataroomCollaborators(dataroom.id, { user_ids: selectedUserIds });
+        await addDataroomCollaborators(dataroom.id, payload);
       }
       toast.success(t('datarooms.addedCollaboratorsSuccess'));
       setSelectedUserIds([]);

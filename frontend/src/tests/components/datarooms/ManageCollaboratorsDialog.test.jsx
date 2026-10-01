@@ -10,6 +10,10 @@ vi.mock('../../../services/api', () => ({
   getEligibleCollaborators: vi.fn(),
   addDataroomCollaborators: vi.fn(),
   removeDataroomCollaborator: vi.fn(),
+  getAdminDataroomCollaborators: vi.fn(),
+  getAdminEligibleCollaborators: vi.fn(),
+  addAdminDataroomCollaborators: vi.fn(),
+  removeAdminDataroomCollaborator: vi.fn(),
 }));
 
 let mockCurrentUser = { id: 'u1', name: 'Alice Owner', email: 'alice@example.com', role: 'member' };
@@ -61,6 +65,25 @@ describe('ManageCollaboratorsDialog', () => {
     });
 
     api.removeDataroomCollaborator.mockResolvedValue({});
+
+    api.getAdminDataroomCollaborators.mockResolvedValue({
+      data: {
+        owner: mockDataroom.owner,
+        collaborators: mockDataroom.collaborators,
+      },
+    });
+
+    api.getAdminEligibleCollaborators.mockResolvedValue({
+      data: [
+        { id: 'u3', name: 'Charlie Colleague', email: 'charlie@example.com' },
+      ],
+    });
+
+    api.addAdminDataroomCollaborators.mockResolvedValue({
+      data: [{ id: 'collab_2', user: { id: 'u3', name: 'Charlie Colleague', email: 'charlie@example.com' } }],
+    });
+
+    api.removeAdminDataroomCollaborator.mockResolvedValue({});
   });
 
   it('renders owner and current collaborators list', async () => {
@@ -108,6 +131,40 @@ describe('ManageCollaboratorsDialog', () => {
 
     await waitFor(() => {
       expect(api.addDataroomCollaborators).toHaveBeenCalledWith('dr_123', {
+        user_ids: ['u3'],
+      });
+      expect(mockUpdated).toHaveBeenCalled();
+    });
+  });
+
+  it('allows admin to search and add eligible collaborators with object payload { user_ids }', async () => {
+    const user = userEvent.setup();
+    const mockUpdated = vi.fn();
+
+    render(
+      <ManageCollaboratorsDialog
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        dataroom={mockDataroom}
+        isAdmin={true}
+        onCollaboratorsUpdated={mockUpdated}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Charlie Colleague')).toBeInTheDocument();
+    });
+
+    // Select Charlie
+    await user.click(screen.getByText('Charlie Colleague'));
+
+    const addBtn = screen.getByRole('button', { name: /Add Collaborators/i });
+    expect(addBtn).toBeInTheDocument();
+
+    await user.click(addBtn);
+
+    await waitFor(() => {
+      expect(api.addAdminDataroomCollaborators).toHaveBeenCalledWith('dr_123', {
         user_ids: ['u3'],
       });
       expect(mockUpdated).toHaveBeenCalled();
