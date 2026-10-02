@@ -55,11 +55,11 @@ export default function ZhHomePage() {
               {/* Release Pill */}
               <div className="mb-8 flex justify-center">
                 <Link
-                  href="/blog/coneshare-v1-9-0-dataroom-collaboration-storage-quotas-transfer"
+                  href="/blog/coneshare-v1-10-0-interactive-spreadsheets-text-selection-heic-french"
                   className="inline-flex items-center gap-x-2 rounded-full border border-gray-200 bg-white/80 px-4 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 hover:border-gray-300"
                 >
                   <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Coneshare v1.9 已发布：资料室协同、存储配额与空间转移</span>
+                  <span>Coneshare v1.10 已发布：交互式表格预览与文本选中</span>
                   <span className="text-gray-400">→</span>
                 </Link>
               </div>
