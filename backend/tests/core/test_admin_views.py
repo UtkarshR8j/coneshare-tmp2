@@ -600,4 +600,113 @@ class TestAdminUserListSearchFilterMetrics:
         assert names == sorted(names, key=str.lower)
 
 
+@pytest.mark.django_db
+class TestAdminUserExport:
+    """
+    Tests for GET /api/v1/admin/users/export/ CSV export endpoint.
+    """
+
+    def test_admin_can_export_users_csv(self, admin_api_client, admin_user, user):
+        import csv
+        import io
+
+        user.total_document_size = 10 * 1024 * 1024
+        user.custom_file_size_quota_mb = 500
+        user.save()
+
+        res = admin_api_client.get('/api/v1/admin/users/export/')
+        assert res.status_code == status.HTTP_200_OK
+        assert 'text/csv' in res['Content-Type']
+        assert 'attachment; filename=' in res['Content-Disposition']
+        assert res['Content-Disposition'].endswith('.csv"')
+
+        # Verify UTF-8 BOM
+        assert res.content.startswith(b'\xef\xbb\xbf')
+
+        # Parse CSV (skipping BOM)
+        csv_text = res.content.decode('utf-8-sig')
+        reader = list(csv.reader(io.StringIO(csv_text)))
+        assert len(reader) >= 3  # Header + admin_user + user
+
+        header = reader[0]
+        assert header == [
+            'Name',
+            'Email',
+            'Role',
+            'Status',
+            'Storage Usage',
+            'Storage Used (Bytes)',
+            'Date Joined (UTC)',
+        ]
+
+        rows_by_email = {row[1]: row for row in reader[1:]}
+        assert user.email in rows_by_email
+        user_row = rows_by_email[user.email]
+        assert user_row[0] == user.name
+        assert user_row[2] == 'Member'
+        assert user_row[3] == 'Active'
+        assert user_row[4] == '10.00 MB / 500 MB'
+        assert user_row[5] == str(10 * 1024 * 1024)
+        assert 'UTC' in user_row[6]
+
+    def test_export_users_csv_respects_filters(self, admin_api_client, admin_user, user):
+        import csv
+        import io
+
+        user.is_active = False
+        user.save()
+
+        # Filter by inactive
+        res = admin_api_client.get('/api/v1/admin/users/export/?status=inactive')
+        assert res.status_code == status.HTTP_200_OK
+        csv_text = res.content.decode('utf-8-sig')
+        reader = list(csv.reader(io.StringIO(csv_text)))
+        emails = [row[1] for row in reader[1:]]
+        assert user.email in emails
+        assert admin_user.email not in emails
+
+        # Filter by search
+        res = admin_api_client.get(f'/api/v1/admin/users/export/?search={admin_user.email}')
+        assert res.status_code == status.HTTP_200_OK
+        csv_text = res.content.decode('utf-8-sig')
+        reader = list(csv.reader(io.StringIO(csv_text)))
+        emails = [row[1] for row in reader[1:]]
+        assert admin_user.email in emails
+        assert user.email not in emails
+
+    def test_export_users_csv_sanitizes_formula_injection(self, admin_api_client, admin_user):
+        import csv
+        import io
+
+        User.objects.create_user(
+            username='formula_user',
+            email='=calc|x!A0@example.com',
+            name='@danger+cmd',
+            password='password',
+            role='member',
+            organization=admin_user.organization,
+        )
+
+        res = admin_api_client.get('/api/v1/admin/users/export/')
+        assert res.status_code == status.HTTP_200_OK
+
+        csv_text = res.content.decode('utf-8-sig')
+        reader = list(csv.reader(io.StringIO(csv_text)))
+
+        # Find row for the malicious user
+        matching_rows = [row for row in reader[1:] if '=calc' in row[1]]
+        assert len(matching_rows) == 1
+        row = matching_rows[0]
+
+        # Name and Email must be prepended with a single quote to prevent spreadsheet formula execution
+        assert row[0] == "'@danger+cmd"
+        assert row[1] == "'=calc|x!A0@example.com"
+
+    def test_non_admin_cannot_export_users_csv(self, api_client, user):
+        api_client.force_authenticate(user=user)
+        res = api_client.get('/api/v1/admin/users/export/')
+        assert res.status_code == status.HTTP_403_FORBIDDEN
+
+
+
 

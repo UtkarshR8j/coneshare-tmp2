@@ -1,9 +1,13 @@
+import csv
+from datetime import datetime
+import io
 import json
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import BigIntegerField, Q, Sum, Value
 from django.db.models.functions import Coalesce, Lower
+from django.http import HttpResponse
 from django.utils.translation import gettext as _
 from rest_framework import permissions, status, viewsets, serializers
 from rest_framework.permissions import IsAuthenticated
@@ -29,6 +33,29 @@ from .serializers import (AdminResetPasswordSerializer, AppConfigurationSerializ
                           UserSerializer, OrganizationSerializer)
 
 User = get_user_model()
+
+
+def format_bytes(num_bytes: int) -> str:
+    if num_bytes is None or num_bytes == 0:
+        return '0 B'
+    units = ['B', 'KB', 'MB', 'GB', 'TB']
+    val = float(num_bytes)
+    unit_idx = 0
+    while val >= 1024.0 and unit_idx < len(units) - 1:
+        val /= 1024.0
+        unit_idx += 1
+    return f"{val:.2f} {units[unit_idx]}" if unit_idx > 0 else f"{int(val)} B"
+
+
+def csv_safe(value) -> str:
+    """
+    Sanitizes values against CSV Formula Injection (CWE-1236).
+    Prepends a single quote if the string begins with =, +, -, @, \\t, \\r, or \\n.
+    """
+    val_str = '' if value is None else str(value)
+    if val_str and val_str[0] in ('=', '+', '-', '@', '\t', '\r', '\n'):
+        return f"'{val_str}"
+    return val_str
 
 
 class AdminSettingUpdateSerializer(serializers.Serializer):
@@ -175,6 +202,60 @@ class AdminUserViewSet(viewsets.ModelViewSet):
             }
 
         return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        summary="Export users to CSV",
+        description="Exports organization users matching current filters to a CSV file.",
+        responses={200: bytes},
+    )
+    @action(detail=False, methods=['get'])
+    def export(self, request, *args, **kwargs):
+        """
+        Exports filtered organization users to a downloadable CSV file.
+        Includes UTF-8 BOM for seamless Microsoft Excel and Numbers compatibility.
+        """
+        queryset = self.get_queryset()
+
+        buffer = io.StringIO()
+        buffer.write('\ufeff')
+
+        writer = csv.writer(buffer)
+        writer.writerow([
+            'Name',
+            'Email',
+            'Role',
+            'Status',
+            'Storage Usage',
+            'Storage Used (Bytes)',
+            'Date Joined (UTC)',
+        ])
+
+        for user in queryset:
+            usage_bytes = user.total_document_size or 0
+            quota_mb = user.effective_file_size_quota_mb
+            quota_str = f"{quota_mb} MB" if quota_mb and quota_mb > 0 else "Unlimited"
+            usage_str = f"{format_bytes(usage_bytes)} / {quota_str}"
+
+            date_joined_str = (
+                user.date_joined.strftime('%Y-%m-%d %H:%M:%S UTC')
+                if user.date_joined
+                else ''
+            )
+
+            writer.writerow([
+                csv_safe(user.name),
+                csv_safe(user.email),
+                user.role.capitalize() if user.role else '',
+                'Active' if user.is_active else 'Inactive',
+                usage_str,
+                usage_bytes,
+                date_joined_str,
+            ])
+
+        filename = f"users_export_{datetime.now().strftime('%Y-%m-%d')}.csv"
+        response = HttpResponse(buffer.getvalue(), content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
 
     def get_queryset(self):
         """

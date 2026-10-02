@@ -11,6 +11,7 @@ vi.mock('../../services/api', () => ({
   createAdminUser: vi.fn(),
   updateAdminUser: vi.fn(),
   deleteAdminUser: vi.fn(),
+  exportAdminUsers: vi.fn(),
 }));
 
 vi.mock('../../components/ui/Pagination', () => ({
@@ -563,5 +564,63 @@ describe('AdminUsersPage', () => {
         expect.objectContaining({ page: 1 })
       );
     });
+  });
+
+  it('exports users to CSV with active filters when clicking Export CSV button', async () => {
+    const csvContent = '\ufeffName,Email,Role,Status,Storage Usage,Storage Used (Bytes),Date Joined (UTC)\n';
+    api.exportAdminUsers.mockResolvedValue({ data: new Blob([csvContent], { type: 'text/csv' }) });
+
+    const originalCreateObjectURL = window.URL.createObjectURL;
+    const originalRevokeObjectURL = window.URL.revokeObjectURL;
+    window.URL.createObjectURL = vi.fn(() => 'blob:http://localhost:5173/mock-blob');
+    window.URL.revokeObjectURL = vi.fn();
+
+    render(
+      <MemoryRouter>
+        <AdminUsersPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('Alice Smith');
+
+    // Apply search filter
+    const searchInput = screen.getByPlaceholderText(/search name, email, or username/i);
+    fireEvent.change(searchInput, { target: { value: 'Alice' } });
+
+    // Apply status filter
+    const statusSelect = screen.getByDisplayValue(/all users/i);
+    fireEvent.change(statusSelect, { target: { value: 'admin' } });
+
+    // Wait for debounced search and status filter to trigger user query
+    await waitFor(
+      () => {
+        expect(api.getAdminUsers).toHaveBeenCalledWith(
+          expect.objectContaining({
+            search: 'Alice',
+            status: 'admin',
+          })
+        );
+      },
+      { timeout: 1000 }
+    );
+
+    const exportBtn = screen.getByRole('button', { name: /export csv/i });
+    expect(exportBtn).toBeInTheDocument();
+
+    fireEvent.click(exportBtn);
+
+    await waitFor(() => {
+      expect(api.exportAdminUsers).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ordering: '-created',
+          search: 'Alice',
+          status: 'admin',
+        })
+      );
+      expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/exported/i));
+    });
+
+    window.URL.createObjectURL = originalCreateObjectURL;
+    window.URL.revokeObjectURL = originalRevokeObjectURL;
   });
 });
