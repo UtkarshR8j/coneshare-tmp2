@@ -15,6 +15,7 @@ import {
   Check,
   X,
   Loader2,
+  Download,
 } from 'lucide-react';
 
 import * as api from '../services/api';
@@ -245,6 +246,7 @@ export function AdminUsersPage() {
   const [editingUserId, setEditingUserId] = useState(null);
   const [editedUserData, setEditedUserData] = useState({});
   const [savingUserId, setSavingUserId] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -405,6 +407,41 @@ export function AdminUsersPage() {
     }
   };
 
+  const handleExportUsers = async () => {
+    setIsExporting(true);
+    try {
+      const orderingParam = sortDirection === 'desc' ? `-${sortField}` : sortField;
+      const params = {
+        ordering: orderingParam,
+      };
+      if (debouncedSearch.trim()) {
+        params.search = debouncedSearch.trim();
+      }
+      if (statusFilter !== 'all') {
+        params.status = statusFilter;
+      }
+
+      const response = await api.exportAdminUsers(params);
+
+      // Trigger browser download via blob URL
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `users_export_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success(t('admin.exportSuccess', { defaultValue: 'Users exported successfully' }));
+    } catch {
+      toast.error(t('admin.exportError', { defaultValue: 'Failed to export users' }));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleEdit = (user) => {
     if (savingUserId !== null) return;
     setEditingUserId(user.id);
@@ -507,11 +544,29 @@ export function AdminUsersPage() {
             {t('admin.usersDesc')}
           </p>
         </div>
-        {!isAddingUser && (
-          <Button onClick={() => setIsAddingUser(true)}>
-            <PlusIcon className="mr-2 h-4 w-4" /> {t('admin.addUser')}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExportUsers}
+            disabled={isExporting || isLoading}
+            aria-label={t('admin.exportCsv', { defaultValue: 'Export CSV' })}
+          >
+            {isExporting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            {isExporting
+              ? t('admin.exporting', { defaultValue: 'Exporting...' })
+              : t('admin.exportCsv', { defaultValue: 'Export CSV' })}
           </Button>
-        )}
+
+          {!isAddingUser && (
+            <Button onClick={() => setIsAddingUser(true)}>
+              <PlusIcon className="mr-2 h-4 w-4" /> {t('admin.addUser')}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Overview KPI Cards */}
