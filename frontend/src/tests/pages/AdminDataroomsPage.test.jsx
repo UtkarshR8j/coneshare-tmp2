@@ -141,6 +141,12 @@ describe('AdminDataroomsPage', () => {
       expect(screen.getByText('Legacy Deal Vault')).toBeInTheDocument();
     });
 
+    // Check dataroom name link opens in a new tab
+    const dataroomLink = screen.getByRole('link', { name: /Series A Due Diligence/i });
+    expect(dataroomLink).toHaveAttribute('href', '/datarooms/droom-1');
+    expect(dataroomLink).toHaveAttribute('target', '_blank');
+    expect(dataroomLink).toHaveAttribute('rel', 'noopener noreferrer');
+
     // Check KPI Cards
     expect(screen.getByText('Total Datarooms')).toBeInTheDocument();
     expect(screen.getByText('Total Storage Consumed')).toBeInTheDocument();

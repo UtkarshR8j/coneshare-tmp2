@@ -390,6 +390,8 @@ export function AdminDataroomsPage() {
                             <div className="space-y-1 min-w-0 flex-1">
                               <Link
                                 to={`/datarooms/${dataroom.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="font-semibold text-foreground hover:text-primary transition-colors flex items-center gap-1.5 group"
                                 title={dataroom.name}
                               >
