@@ -234,6 +234,64 @@ class TestGoogleDriveCallbackView:
         mock_provider_instance.get_user_info.assert_called_once()
 
     @patch('cloudfiles.views.cache')
+    @patch('cloudfiles.views.get_cloud_provider')
+    def test_callback_reconnect_preserves_existing_refresh_token_when_omitted(self, mock_get_provider, mock_cache, api_client, user):
+        CloudConnection.objects.create(
+            user=user,
+            provider='google_drive',
+            access_token='old_access_token',
+            refresh_token='existing_refresh_token',
+            email='user@google.com',
+        )
+        mock_cache.get.return_value = 'test_state_google'
+        mock_provider_instance = MagicMock()
+        mock_provider_instance.handle_callback.return_value = {
+            'access_token': 'new_access_token',
+            'refresh_token': None,
+            'expires_at': None
+        }
+        mock_provider_instance.get_user_info.return_value = {'email': 'user@google.com'}
+        mock_get_provider.return_value = mock_provider_instance
+
+        data = {'code': 'google_code', 'state': 'test_state_google'}
+        response = api_client.post('/api/v1/cloud/callback/google_drive/', data)
+
+        assert response.status_code == status.HTTP_200_OK
+        connection = CloudConnection.objects.get(user=user, provider='google_drive')
+        assert connection.access_token == 'new_access_token'
+        assert connection.refresh_token == 'existing_refresh_token'
+        assert connection.email == 'user@google.com'
+
+    @patch('cloudfiles.views.cache')
+    @patch('cloudfiles.views.get_cloud_provider')
+    def test_callback_reconnect_different_account_does_not_preserve_old_refresh_token(self, mock_get_provider, mock_cache, api_client, user):
+        CloudConnection.objects.create(
+            user=user,
+            provider='google_drive',
+            access_token='old_access_token',
+            refresh_token='old_account_refresh_token',
+            email='account_a@google.com',
+        )
+        mock_cache.get.return_value = 'test_state_google'
+        mock_provider_instance = MagicMock()
+        mock_provider_instance.handle_callback.return_value = {
+            'access_token': 'new_access_token',
+            'refresh_token': None,
+            'expires_at': None
+        }
+        mock_provider_instance.get_user_info.return_value = {'email': 'account_b@google.com'}
+        mock_get_provider.return_value = mock_provider_instance
+
+        data = {'code': 'google_code', 'state': 'test_state_google'}
+        response = api_client.post('/api/v1/cloud/callback/google_drive/', data)
+
+        assert response.status_code == status.HTTP_200_OK
+        connection = CloudConnection.objects.get(user=user, provider='google_drive')
+        assert connection.access_token == 'new_access_token'
+        assert connection.email == 'account_b@google.com'
+        assert connection.refresh_token is None
+
+    @patch('cloudfiles.views.cache')
     def test_callback_invalid_state(self, mock_cache, api_client, user):
         mock_cache.get.return_value = 'different_state'
         data = {'code': 'google_code', 'state': 'test_state_google'}

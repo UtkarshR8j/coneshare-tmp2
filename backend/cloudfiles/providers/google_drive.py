@@ -1,10 +1,12 @@
 import logging
 import tempfile
 import httpx
+from datetime import timezone as dt_timezone
 from io import BytesIO
 from urllib.parse import urljoin
 
 from django.conf import settings
+from django.utils import timezone
 from google.auth.exceptions import RefreshError
 from core.services import get_dynamic_setting
 from google.auth.transport.requests import Request
@@ -83,12 +85,20 @@ class GoogleDriveProvider(BaseCloudProvider):
         if not self.connection:
             raise CloudProviderError("No connection provided for Google Drive client.")
 
+        naive_expiry = None
+        if self.connection.expires_at:
+            if timezone.is_aware(self.connection.expires_at):
+                naive_expiry = self.connection.expires_at.astimezone(dt_timezone.utc).replace(tzinfo=None)
+            else:
+                naive_expiry = self.connection.expires_at
+
         creds = Credentials(
             token=self.connection.access_token,
             refresh_token=self.connection.refresh_token,
             client_id=self.client_id,
             client_secret=self.client_secret,
-            token_uri="https://oauth2.googleapis.com/token"
+            token_uri="https://oauth2.googleapis.com/token",
+            expiry=naive_expiry,
         )
 
         if creds.expired and creds.refresh_token:
@@ -96,7 +106,14 @@ class GoogleDriveProvider(BaseCloudProvider):
                 creds.refresh(Request())
                 # Persist the refreshed credentials
                 self.connection.access_token = creds.token
-                self.connection.expires_at = creds.expiry
+                if creds.expiry:
+                    self.connection.expires_at = (
+                        timezone.make_aware(creds.expiry, dt_timezone.utc)
+                        if timezone.is_naive(creds.expiry)
+                        else creds.expiry
+                    )
+                else:
+                    self.connection.expires_at = None
                 update_fields = ['access_token', 'expires_at']
 
                 # A new refresh token is only issued on the initial authorization
@@ -109,8 +126,7 @@ class GoogleDriveProvider(BaseCloudProvider):
                 logger.info(f"Refreshed Google Drive token for connection {self.connection.id}")
             except RefreshError as e:
                 logger.error(f"Google Drive token refresh failed for connection {self.connection.id}: {e}")
-                # This often means the user has revoked access.
-                raise CloudProviderError("Failed to refresh Google Drive token. Please try disconnecting and reconnecting your account.")
+                self._handle_provider_error(e, "token refresh")
 
         return build('drive', 'v3', credentials=creds)
 
@@ -228,18 +244,18 @@ class GoogleDriveProvider(BaseCloudProvider):
             logger.warning(f"Failed to revoke Google Drive token: {e}")
 
     def upload_file(self, file_obj, file_name, folder_id) -> str:
-        service = self._get_client()
-        parents = []
-        if folder_id and folder_id.strip().lower() != 'root':
-            parents = [folder_id.strip()]
-
-        file_metadata = {
-            'name': file_name,
-        }
-        if parents:
-            file_metadata['parents'] = parents
-
         try:
+            service = self._get_client()
+            parents = []
+            if folder_id and folder_id.strip().lower() != 'root':
+                parents = [folder_id.strip()]
+
+            file_metadata = {
+                'name': file_name,
+            }
+            if parents:
+                file_metadata['parents'] = parents
+
             file_obj.seek(0)
             media = MediaIoBaseUpload(file_obj, mimetype='application/octet-stream', resumable=True)
             uploaded_file = service.files().create(
@@ -248,5 +264,5 @@ class GoogleDriveProvider(BaseCloudProvider):
                 fields='id'
             ).execute()
             return uploaded_file.get('id')
-        except HttpError as e:
-            raise CloudProviderError(f"Google Drive upload failed: {e}")
+        except (HttpError, RefreshError) as e:
+            self._handle_provider_error(e, "upload")

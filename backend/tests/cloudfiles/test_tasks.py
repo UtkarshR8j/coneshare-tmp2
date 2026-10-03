@@ -1,11 +1,18 @@
+from datetime import timedelta, timezone as dt_timezone
 from io import BytesIO
-import pytest
 from unittest.mock import patch, MagicMock
-from cloudfiles.tasks import import_from_cloud_task
+
+import pytest
+from django.utils import timezone
+from google.auth.exceptions import RefreshError
+from google.oauth2.credentials import Credentials
+
 from cloudfiles.models import CloudConnection
-from documents.models import Document, DocumentVersion
 from cloudfiles.providers import CloudProviderError
+from cloudfiles.providers.google_drive import GoogleDriveProvider
+from cloudfiles.tasks import import_from_cloud_task
 from core.models import AppConfiguration
+from documents.models import Document, DocumentVersion
 
 @pytest.fixture
 def cloud_connection(user):
@@ -283,9 +290,6 @@ def test_nextcloud_download_file_fallback_size_when_content_length_missing(mock_
 @pytest.mark.django_db
 @patch('cloudfiles.providers.google_drive.build')
 def test_google_drive_list_files_handles_refresh_error(mock_build, cloud_connection):
-    from google.auth.exceptions import RefreshError
-    from cloudfiles.providers.google_drive import GoogleDriveProvider
-
     cloud_connection.provider = 'google_drive'
     cloud_connection.access_token = 'token'
     cloud_connection.save()
@@ -308,6 +312,67 @@ def test_google_drive_list_files_handles_refresh_error(mock_build, cloud_connect
             provider.list_files('/')
 
         assert "Token has been expired or revoked" in str(exc_info.value) or "Google Drive" in str(exc_info.value)
+
+
+@pytest.mark.django_db
+@patch('cloudfiles.providers.google_drive.build')
+def test_google_drive_proactively_refreshes_expired_token(mock_build, cloud_connection):
+    cloud_connection.provider = 'google_drive'
+    cloud_connection.access_token = 'old_access_token'
+    cloud_connection.refresh_token = 'valid_refresh_token'
+    # Expired 10 minutes ago
+    cloud_connection.expires_at = timezone.now() - timedelta(minutes=10)
+    cloud_connection.save()
+
+    with patch('cloudfiles.providers.google_drive.get_dynamic_setting') as mock_setting:
+        mock_setting.side_effect = lambda k: {
+            'GOOGLE_DRIVE_CLIENT_ID': 'id',
+            'GOOGLE_DRIVE_CLIENT_SECRET': 'secret',
+        }.get(k, '')
+
+        future_naive_expiry = (timezone.now() + timedelta(hours=1)).replace(tzinfo=None)
+
+        with patch.object(Credentials, 'refresh', autospec=True) as mock_refresh:
+            def fake_refresh(creds_self, request):
+                creds_self.token = 'refreshed_access_token'
+                creds_self.expiry = future_naive_expiry
+            mock_refresh.side_effect = fake_refresh
+
+            provider = GoogleDriveProvider(connection=cloud_connection)
+            provider._get_client()
+
+            assert mock_refresh.called, "creds.refresh should have been called proactively"
+            cloud_connection.refresh_from_db()
+            assert cloud_connection.access_token == 'refreshed_access_token'
+            assert timezone.is_aware(cloud_connection.expires_at)
+            assert cloud_connection.expires_at == timezone.make_aware(future_naive_expiry, dt_timezone.utc)
+
+
+@pytest.mark.django_db
+@patch('cloudfiles.providers.google_drive.build')
+def test_google_drive_upload_file_handles_refresh_error(mock_build, cloud_connection):
+    cloud_connection.provider = 'google_drive'
+    cloud_connection.access_token = 'token'
+    cloud_connection.save()
+
+    with patch('cloudfiles.providers.google_drive.get_dynamic_setting') as mock_setting:
+        mock_setting.side_effect = lambda k: {
+            'GOOGLE_DRIVE_CLIENT_ID': 'id',
+            'GOOGLE_DRIVE_CLIENT_SECRET': 'secret',
+        }.get(k, '')
+
+        provider = GoogleDriveProvider(connection=cloud_connection)
+
+        mock_service = MagicMock()
+        mock_service.files.return_value.create.return_value.execute.side_effect = RefreshError(
+            "('invalid_grant: Bad Request', {'error': 'invalid_grant'})"
+        )
+        mock_build.return_value = mock_service
+
+        with pytest.raises(CloudProviderError) as exc_info:
+            provider.upload_file(BytesIO(b'content'), 'test.txt', 'root')
+
+        assert "authorization token may have expired or been revoked" in str(exc_info.value)
 
 
 
