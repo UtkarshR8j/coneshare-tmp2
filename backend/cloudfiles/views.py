@@ -152,22 +152,47 @@ class CloudCallbackView(APIView):
             provider = get_cloud_provider(provider_name)
             token_data = provider.handle_callback(code)
 
-            # 3. Save connection
+            # Look up any existing connection for this user and provider
+            existing_connection = CloudConnection.objects.filter(
+                user=request.user,
+                provider=provider_name
+            ).first()
+
+            # Temporarily configure provider connection to fetch user profile/email
+            temp_connection = CloudConnection(
+                id=existing_connection.id if existing_connection else None,
+                user=request.user,
+                provider=provider_name,
+                access_token=token_data['access_token']
+            )
+            provider.connection = temp_connection
+            user_info = provider.get_user_info()
+            email = user_info.get('email', '')
+
+            # Determine refresh token:
+            # Only preserve existing refresh token if reconnecting to the SAME external account (matching email).
+            # If the user switched accounts, previous account's refresh token must not be reused.
+            if token_data.get('refresh_token'):
+                refresh_token = token_data['refresh_token']
+            elif existing_connection and existing_connection.email and existing_connection.email == email:
+                refresh_token = existing_connection.refresh_token
+            else:
+                refresh_token = None
+
+            # 3. Save connection atomically with resolved email and refresh token
+            defaults = {
+                'access_token': token_data['access_token'],
+                'refresh_token': refresh_token,
+                'expires_at': token_data.get('expires_at'),
+                'email': email,
+            }
+
             connection, created = CloudConnection.objects.update_or_create(
                 user=request.user,
                 provider=provider_name,
-                defaults={
-                    'access_token': token_data['access_token'],
-                    'refresh_token': token_data.get('refresh_token'),
-                    'expires_at': token_data.get('expires_at')
-                }
+                defaults=defaults
             )
-
-            # 4. Get user info and finalize
             provider.connection = connection
-            user_info = provider.get_user_info()
-            connection.email = user_info.get('email', '')
-            connection.save()
 
             provider_display_name = provider_name.replace('_', ' ').title()
             return Response({"detail": f"Successfully connected to {provider_display_name}."})
