@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   ChevronsLeft,
   ChevronsRight,
+  Activity,
 } from 'lucide-react';
 import { formatRelativeTime } from '../../utils/formatters';
 import { useSearchParams } from 'react-router-dom';
@@ -47,6 +48,22 @@ const GALLERY_ITEMS = [
   { image: 'https://d2p5uoj6rqd2yg.cloudfront.net/assets/gallery/kalinga-03.jpg' },
   { image: 'https://d2p5uoj6rqd2yg.cloudfront.net/assets/gallery/kalinga-04.jpg' },
 ];
+
+// Derive the hero gallery images from the dataroom's stored gallery when the
+// banner mode is 'gallery'; falls back to the default Kalinga set otherwise.
+function buildHeroGalleryItems(scopeData) {
+  const mode = scopeData?.banner_mode || 'single';
+  const stored = Array.isArray(scopeData?.banner_images)
+    ? scopeData.banner_images.filter((img) => img && img.url)
+    : [];
+  if (mode === 'none') {
+    return [];
+  }
+  if (mode === 'gallery' && stored.length > 0) {
+    return stored.map((img) => ({ image: img.url, caption: img.caption }));
+  }
+  return GALLERY_ITEMS;
+}
 import { useBranding } from '../../contexts/BrandingProvider';
 import { LanguagePicker } from '../common/LanguagePicker';
 
@@ -839,6 +856,8 @@ export function DataroomViewer({ data, slug, viewId }) {
   const isDocActive = showDocumentViewer;
   const isRootHeroView = !showDocumentViewer
     && (scopeData?.current_parent_id === null || scopeData?.current_parent_id === undefined);
+  const heroGalleryItems = buildHeroGalleryItems(scopeData);
+  const heroGalleryEnabled = heroGalleryItems.length > 0;
   const isQnaEnabled = (
     documentViewData?.link_settings?.enable_qna
     ?? scopeData?.link_settings?.enable_qna
@@ -939,7 +958,7 @@ export function DataroomViewer({ data, slug, viewId }) {
         </div>
       </header>
 
-      {isRootHeroView && (
+      {isRootHeroView && heroGalleryEnabled && (
         <section
           className="kalinga-hero relative flex flex-col overflow-hidden"
           style={{ ...KALINGA_HERO_STYLE, minHeight: 'clamp(380px,56vh,560px)' }}
@@ -947,10 +966,10 @@ export function DataroomViewer({ data, slug, viewId }) {
           {/* Background gallery layer */}
           <div className="absolute inset-0 z-0">
  {isMobile ? (
- <MobileFadeGallery items={GALLERY_ITEMS} />
+ <MobileFadeGallery items={heroGalleryItems} />
  ) : (
  <AccordionGallery
- items={GALLERY_ITEMS}
+ items={heroGalleryItems}
  defaultIndex={2}
  expandRatio={0.52}
  trigger="hover"
@@ -997,7 +1016,7 @@ export function DataroomViewer({ data, slug, viewId }) {
         </section>
       )}
 
-      {scopeData.branding_banner && !showDocumentViewer && (
+      {scopeData.banner_mode !== 'none' && scopeData.branding_banner && !showDocumentViewer && (
         <section className="flex-shrink-0 border-b bg-white">
           <img src={scopeData.branding_banner} alt={`${scopeData.name} banner`} className={`w-full object-cover${isRootHeroView ? ' max-h-48' : ' h-40 md:h-56'}`} />
         </section>
@@ -1055,6 +1074,20 @@ export function DataroomViewer({ data, slug, viewId }) {
           )}
         </ol>
 
+        {scopeData.enable_telemetry_access && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              window.open(`/view/${slug}/telemetry`, '_blank', 'noopener');
+            }}
+            className="ml-2 h-8 shrink-0 gap-1 px-2 text-xs"
+            title={t('viewer.openTelemetry', { defaultValue: 'View telemetry' })}
+          >
+            <Activity className="h-4 w-4" />
+            <span>{t('viewer.openTelemetry', { defaultValue: 'View telemetry' })}</span>
+          </Button>
+        )}
         {showDocumentViewer && (
           <div className="flex items-center gap-1 shrink-0 ml-2">
             <Button

@@ -7,7 +7,7 @@ import { ShareIcon, Star, ArrowLeft, ChevronDown, FolderUp, Plus, Loader2, Alert
 import { toast } from 'sonner';
 import { formatBytes } from '../lib/formatters';
 import { isDataroomOwner, isDataroomCollaborator } from '../utils/formatters';
-import { getDataroom, addContentToDataroom, createDataroomFolder, moveDataroomContent, getDataroomFolderContents, getShareLinksForDataroom, deleteShareLink, getDataroomViewSessions, getDataroomStats, removeContentFromDataroom, updateDataroomFolder, updateDataroomDocument, updateDataroomBranding, reorderDataroomItems, deleteDataroom, ensureDataroomFolderPaths, uploadDataroomDocument, upgradeDataroomStorage } from '../services/api';
+import { getDataroom, addContentToDataroom, createDataroomFolder, moveDataroomContent, getDataroomFolderContents, getShareLinksForDataroom, deleteShareLink, getDataroomViewSessions, getDataroomStats, removeContentFromDataroom, updateDataroomFolder, updateDataroomDocument, updateDataroomBranding, reorderDataroomItems, deleteDataroom, ensureDataroomFolderPaths, uploadDataroomDocument, upgradeDataroomStorage, getDataroomBannerImages, uploadDataroomBannerImage, deleteDataroomBannerImage } from '../services/api';
 import { useBreadcrumb } from '../components/layout/BreadcrumbProvider';
 import { useUpload } from '../contexts/UploadProvider';
 import { useUser } from '../contexts/UserProvider';
@@ -113,6 +113,15 @@ export function DataroomPage() {
   const [showFileIndex, setShowFileIndex] = useState(true);
   const [enableQna, setEnableQna] = useState(true);
   const [isSavingEnableQna, setIsSavingEnableQna] = useState(false);
+  const [enableTelemetryAccess, setEnableTelemetryAccess] = useState(false);
+  const [isSavingTelemetryAccess, setIsSavingTelemetryAccess] = useState(false);
+  const [bannerMode, setBannerMode] = useState('single');
+  const [logoMode, setLogoMode] = useState('org');
+  const [isSavingBannerMode, setIsSavingBannerMode] = useState(false);
+  const [isSavingLogoMode, setIsSavingLogoMode] = useState(false);
+  const [galleryImages, setGalleryImages] = useState([]);
+  const [isUploadingGalleryImage, setIsUploadingGalleryImage] = useState(false);
+  const galleryFileInputRef = useRef(null);
   const [storageQuotaMb, setStorageQuotaMb] = useState(0);
   const [isSavingStorageQuota, setIsSavingStorageQuota] = useState(false);
   const [isUpgradingStorage, setIsUpgradingStorage] = useState(false);
@@ -425,6 +434,10 @@ export function DataroomPage() {
     setBrandingPreviewUrl(null);
     setShowFileIndex(Boolean(dataroom.show_file_index));
     setEnableQna(dataroom.enable_qna !== false);
+    setEnableTelemetryAccess(Boolean(dataroom.enable_telemetry_access));
+    setBannerMode(dataroom.banner_mode || 'single');
+    setLogoMode(dataroom.logo_mode || 'org');
+    setGalleryImages(dataroom.banner_images || []);
     setStorageQuotaMb(dataroom.storage_quota_mb ?? 0);
   }, [dataroom]);
 
@@ -703,6 +716,90 @@ export function DataroomPage() {
       // Error toast handled by interceptor
     } finally {
       setIsSavingEnableQna(false);
+    }
+  };
+
+  const handleToggleEnableTelemetryAccess = async (checked) => {
+    if (isSavingTelemetryAccess) return;
+    const previous = enableTelemetryAccess;
+    setEnableTelemetryAccess(checked);
+    setIsSavingTelemetryAccess(true);
+    try {
+      const response = await updateDataroomBranding(dataroomId, {
+        enableTelemetryAccess: checked,
+      });
+      setDataroom(response.data);
+      toast.success(t('datarooms.telemetryAccessUpdated'));
+    } catch (error) {
+      setEnableTelemetryAccess(previous);
+      // Error toast handled by interceptor
+    } finally {
+      setIsSavingTelemetryAccess(false);
+    }
+  };
+
+  const handleChangeBannerMode = async (mode) => {
+    if (isSavingBannerMode || mode === bannerMode) return;
+    const previous = bannerMode;
+    setBannerMode(mode);
+    setIsSavingBannerMode(true);
+    try {
+      const response = await updateDataroomBranding(dataroomId, { bannerMode: mode });
+      setDataroom(response.data);
+      toast.success(t('datarooms.bannerModeUpdated'));
+    } catch (error) {
+      setBannerMode(previous);
+      // Error toast handled by interceptor
+    } finally {
+      setIsSavingBannerMode(false);
+    }
+  };
+
+  const handleChangeLogoMode = async (mode) => {
+    if (isSavingLogoMode || mode === logoMode) return;
+    const previous = logoMode;
+    setLogoMode(mode);
+    setIsSavingLogoMode(true);
+    try {
+      const response = await updateDataroomBranding(dataroomId, { logoMode: mode });
+      setDataroom(response.data);
+      toast.success(t('datarooms.logoModeUpdated'));
+    } catch (error) {
+      setLogoMode(previous);
+      // Error toast handled by interceptor
+    } finally {
+      setIsSavingLogoMode(false);
+    }
+  };
+
+  const handleGalleryFileChange = async (e) => {
+    const file = e.target.files?.[0] || null;
+    e.target.value = '';
+    if (!file) return;
+    setIsUploadingGalleryImage(true);
+    try {
+      await uploadDataroomBannerImage(dataroomId, file);
+      const fresh = await getDataroomBannerImages(dataroomId);
+      setGalleryImages(fresh.data);
+      if (bannerMode !== 'gallery') {
+        await handleChangeBannerMode('gallery');
+      }
+      toast.success(t('datarooms.galleryImageAdded'));
+    } catch (error) {
+      // Error toast handled by interceptor
+    } finally {
+      setIsUploadingGalleryImage(false);
+    }
+  };
+
+  const handleRemoveGalleryImage = async (bannerId) => {
+    try {
+      await deleteDataroomBannerImage(dataroomId, bannerId);
+      const fresh = await getDataroomBannerImages(dataroomId);
+      setGalleryImages(fresh.data);
+      toast.success(t('datarooms.galleryImageRemoved'));
+    } catch (error) {
+      // Error toast handled by interceptor
     }
   };
 
@@ -1128,6 +1225,21 @@ export function DataroomPage() {
               <p className="mb-3 text-sm text-gray-600 dark:text-gray-300">
                 {t('datarooms.bannerDescription')}
               </p>
+              <div className="mb-4 flex flex-wrap gap-2">
+                {['single', 'gallery', 'none'].map((mode) => (
+                  <Button
+                    key={mode}
+                    type="button"
+                    size="sm"
+                    variant={bannerMode === mode ? 'default' : 'outline'}
+                    disabled={isSavingBannerMode}
+                    onClick={() => handleChangeBannerMode(mode)}
+                  >
+                    {t(`datarooms.bannerMode.${mode}`)}
+                  </Button>
+                ))}
+              </div>
+              {bannerMode === 'single' && (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <input
@@ -1195,6 +1307,68 @@ export function DataroomPage() {
                   </div>
                 </div>
               </div>
+              )}
+              {bannerMode === 'gallery' && (
+                <div>
+                  <input
+                    ref={galleryFileInputRef}
+                    id="dataroom-gallery-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleGalleryFileChange}
+                  />
+                  <div className="mb-3 flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isUploadingGalleryImage}
+                      onClick={() => galleryFileInputRef.current?.click()}
+                    >
+                      {isUploadingGalleryImage
+                        ? t('common.uploading', { defaultValue: 'Uploading...' })
+                        : t('datarooms.addGalleryImage', { defaultValue: 'Add image' })}
+                    </Button>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {galleryImages.length} {t('datarooms.galleryImageCount', { defaultValue: 'image(s)' })}
+                    </span>
+                  </div>
+                  {galleryImages.length === 0 ? (
+                    <div className="flex h-20 items-center justify-center rounded-md border border-dashed border-gray-300 text-xs text-gray-500 dark:border-gray-700">
+                      {t('datarooms.noGalleryImages', { defaultValue: 'No gallery images yet' })}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                      {galleryImages.map((img) => (
+                        <div
+                          key={img.id}
+                          className="group relative overflow-hidden rounded-md border border-gray-200 dark:border-gray-700"
+                        >
+                          <img
+                            src={img.url}
+                            alt={img.caption || `Gallery image ${img.position + 1}`}
+                            className="h-24 w-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveGalleryImage(img.id)}
+                            className="absolute right-1 top-1 rounded bg-black/60 px-2 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+                            aria-label={t('datarooms.removeGalleryImage', { defaultValue: 'Remove image' })}
+                          >
+                            {t('common.remove', { defaultValue: 'Remove' })}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {bannerMode === 'none' && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {t('datarooms.bannerNoneHint', { defaultValue: 'No banner will be shown on the share page.' })}
+                </p>
+              )}
             </div>
 
             <div className="pb-6 border-b border-gray-200 dark:border-gray-800">
@@ -1514,6 +1688,18 @@ export function DataroomPage() {
                   onCheckedChange={handleToggleEnableQna}
                   disabled={isSavingEnableQna}
                   aria-label={t('datarooms.enableQna')}
+                />
+              </div>
+              <div className="mt-3 flex items-center justify-between rounded border border-gray-200 p-3 dark:border-gray-700">
+                <div>
+                  <p className="text-sm font-medium">{t('datarooms.enableTelemetryAccess', { defaultValue: 'Access to Telemetry' })}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('datarooms.enableTelemetryAccessHelp', { defaultValue: 'Show a View telemetry button on the share page, opening the live telemetry dashboard.' })}</p>
+                </div>
+                <Switch
+                  checked={enableTelemetryAccess}
+                  onCheckedChange={handleToggleEnableTelemetryAccess}
+                  disabled={isSavingTelemetryAccess}
+                  aria-label={t('datarooms.enableTelemetryAccess', { defaultValue: 'Access to Telemetry' })}
                 />
               </div>
             </div>
