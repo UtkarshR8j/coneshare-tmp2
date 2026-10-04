@@ -24,6 +24,7 @@ import PasswordSettingsPage from './pages/PasswordSettingsPage';
 import { PublicUploadPage } from './pages/PublicUploadPage';
 import { ShareLinkAnalyticsPage } from './pages/ShareLinkAnalyticsPage';
 import { ShareLinkViewerPage } from './pages/ShareLinkViewerPage';
+import { ShareLinkTelemetryPage } from './pages/ShareLinkTelemetryPage';
 import UserSettingsPage from './pages/UserSettingsPage';
 import { IntegrationsSettingsPage } from './pages/IntegrationsSettingsPage';
 import ApiKeysSettingsPage from './pages/ApiKeysSettingsPage';
@@ -50,6 +51,7 @@ function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/signup/verify" element={<SignupVerifyPage />} />
           <Route path="/view/:slug" element={<ShareLinkViewerPage />} />
+          <Route path="/view/:slug/telemetry" element={<ShareLinkTelemetryPage />} />
           <Route path="/upload/:slug" element={<PublicUploadPage />} />
           <Route path="/auth/:providerName/callback" element={<CloudAuthCallbackPage />} />
           <Route path="/500" element={<ErrorPage />} />

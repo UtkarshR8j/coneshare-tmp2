@@ -294,6 +294,16 @@ export const getShareLinkViewData = (
 export const getShareLinkPublicMeta = (slug) =>
   api.get(`/links/${slug}/public-meta/`);
 
+// Telemetry payload for the public kiln dashboard. Inherits the share
+// link's password/email/NDA guards, so a 401 with a protectionType
+// means show that gate rather than an error.
+export const getShareLinkTelemetry = (slug, { since = null, until = null } = {}) => {
+  const params = {};
+  if (since) params.since = since;
+  if (until) params.until = until;
+  return api.get(`/links/${slug}/telemetry/`, { params });
+};
+
 export const verifyShareLinkPassword = (slug, password) =>
   api.post(`/links/${slug}/verify-password/`, { password });
 
@@ -625,6 +635,18 @@ export const updateDataroomBannerImage = (dataroomId, bannerId, data) => {
 };
 export const deleteDataroomBannerImage = (dataroomId, bannerId) =>
   api.delete(`/datarooms/${dataroomId}/banner-images/${bannerId}/`);
+
+// Upload a Bluelayer SIM workbook; the backend parses it, stores raw
+// rows, and rebuilds the hourly telemetry table.
+export const uploadTelemetryExcel = (dataroomId, file, { sourceName = '', correctionReason = '' } = {}) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (sourceName) formData.append('source_name', sourceName);
+  if (correctionReason) formData.append('correction_reason', correctionReason);
+  return api.post(`/datarooms/${dataroomId}/telemetry/ingest/`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
 export const upgradeDataroomStorage = (id) => api.post(`/datarooms/${id}/upgrade-storage/`);
 export const addContentToDataroom = (id, data) => api.post(`/datarooms/${id}/add-content/`, data);
 export const removeContentFromDataroom = (id, data) => api.post(`/datarooms/${id}/remove-content/`, data);

@@ -248,7 +248,7 @@ function MobileFadeGallery({ items, interval = 5500 }) {
 
 }
 
-export function DataroomViewer({ data, slug, viewId }) {
+export function DataroomViewer({ data, slug, viewId, onOpenTelemetry }) {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { brandName, brandLogoUrl, brandWebsiteUrl } = useBranding();
@@ -1078,9 +1078,7 @@ export function DataroomViewer({ data, slug, viewId }) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              window.open(`/view/${slug}/telemetry`, '_blank', 'noopener');
-            }}
+            onClick={() => onOpenTelemetry?.()}
             className="ml-2 h-8 shrink-0 gap-1 px-2 text-xs"
             title={t('viewer.openTelemetry', { defaultValue: 'View telemetry' })}
           >

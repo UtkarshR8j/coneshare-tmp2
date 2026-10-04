@@ -470,7 +470,12 @@ export function ShareLinkViewerPage() {
         {previewToken && showPreviewBanner && (
           <PreviewBanner onClose={() => setShowPreviewBanner(false)} />
         )}
-        <DataroomViewer data={viewData} slug={slug} viewId={viewId} />
+        <DataroomViewer
+          data={viewData}
+          slug={slug}
+          viewId={viewId}
+          onOpenTelemetry={() => window.open(`/view/${slug}/telemetry`, '_blank', 'noopener')}
+        />
       </>
     );
   }
