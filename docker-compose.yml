@@ -1,0 +1,129 @@
+services:
+  core:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file: .env
+    volumes:
+      - ./core:/app
+      - ~/.coneshare-data:/storage
+
+  backend:
+    image: coneshare:dev
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python manage.py runserver 0.0.0.0:8000
+    # command: tail -f /dev/null
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - core
+    env_file: .env
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save "" --appendonly no
+    volumes:
+      - redis_data:/data
+
+  celery_worker:
+    image: coneshare:dev
+    command: celery -A backend worker -l INFO -Q celery --concurrency=${CELERY_WORKER_CONCURRENCY:-4}
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - redis
+      - core
+    env_file: .env
+
+  video_worker:
+    image: coneshare:dev
+    command: celery -A backend worker -l INFO -Q video_processing --concurrency=${CELERY_VIDEO_WORKER_CONCURRENCY:-1}
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - redis
+      - core
+    env_file: .env
+
+  celery_beat:
+    image: coneshare:dev
+    command: celery -A backend beat -l INFO
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - redis
+    env_file: .env
+
+  frontend:
+    image: coneshare:frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  portal:
+    image: coneshare:portal
+    build:
+      context: ./portal
+      dockerfile: Dockerfile
+    # command: tail -f /dev/null
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  mcp_server:
+    image: coneshare:mcp
+    build:
+      context: ./mcp-server
+      dockerfile: Dockerfile
+    command: python -m coneshare_mcp.server
+    ports:
+      - "${MCP_PORT:-8001}:${MCP_PORT:-8001}"
+    volumes:
+      - ./mcp-server:/app
+    environment:
+      - PYTHONPATH=/app
+      - MCP_TRANSPORT=${MCP_TRANSPORT:-streamable-http}
+      - MCP_PATH=${MCP_PATH:-/mcp/sse}
+      - CONESHARE_API_URL=${CONESHARE_API_URL:-http://backend:8000/api/v1}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; socket.create_connection(('127.0.0.1', 8001), timeout=2)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  clamav:
+    image: clamav/clamav:stable-debian
+    restart: unless-stopped
+    profiles:
+      - malware
+    expose:
+      - "3310"
+
+volumes:
+  redis_data:

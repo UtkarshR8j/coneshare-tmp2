@@ -1,0 +1,396 @@
+import { Fragment, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { ChevronDown, ChevronRight, FolderIcon } from 'lucide-react';
+import { FileTypeIcon } from './FileTypeIcon';
+import { PageViewsChart } from './PageViewsChart';
+import { Pagination } from '../ui/Pagination';
+import { Skeleton } from '../ui/Skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../ui/Table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../ui/Tooltip';
+import { parseUserAgent, isSafeUrl } from '../../lib/utils';
+import { formatDate } from '../../utils/formatters';
+
+function DataroomVisitRow({ visit }) {
+  const { t } = useTranslation();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const hasPageViews = visit.page_views && visit.page_views.length > 0;
+  const hasLinkClicks = visit.link_clicks && visit.link_clicks.length > 0;
+  const isFolder = visit.item_type === 'folder' || Boolean(visit.dataroom_folder_id);
+  const isDocumentVisit = !isFolder;
+  const isExpandable = isDocumentVisit && (hasPageViews || hasLinkClicks);
+
+  const itemName = isFolder
+    ? (visit.dataroom_folder_name || visit.item_name || t('viewSessions.deletedFolder'))
+    : (visit.dataroom_document_name || visit.item_name || t('viewSessions.deletedDocument'));
+
+  const viewText = isFolder
+    ? t('viewSessions.viewedFolder', { name: itemName })
+    : t('viewSessions.viewedDocument', { name: itemName });
+
+  const isDeleted = visit.item_status === 'deleted';
+  const isRenamed = visit.item_status === 'renamed';
+  const hasPath = Boolean(visit.item_path);
+
+  return (
+    <li key={visit.id}>
+      <div className="flex items-center gap-2 text-sm">
+        <div className="flex w-6 flex-shrink-0 items-center justify-center">
+          {isExpandable && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="rounded p-1 hover:bg-gray-200 dark:hover:bg-gray-700"
+              aria-expanded={isExpanded}
+              aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </button>
+          )}
+        </div>
+
+        {isFolder ? (
+          <FileTypeIcon type="folder" className="h-4 w-4 flex-shrink-0" />
+        ) : (
+          <FileTypeIcon type={visit.dataroom_document_type || 'document'} className="h-4 w-4 flex-shrink-0" />
+        )}
+
+        {hasPath ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="truncate cursor-default">
+                {viewText}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('viewSessions.historicalPath', { path: visit.item_path })}</p>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="truncate">
+            {viewText}
+          </span>
+        )}
+
+        {isDeleted && (
+          <span className="rounded bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-300 flex-shrink-0">
+            {t('viewSessions.statusDeleted')}
+          </span>
+        )}
+
+        {isRenamed && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="rounded bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:text-amber-300 cursor-help flex-shrink-0">
+                {t('viewSessions.statusRenamed')}
+              </span>
+            </TooltipTrigger>
+            {visit.item_name && (
+              <TooltipContent>
+                <p>{t('viewSessions.originallyViewedAs', { name: visit.item_name })}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        )}
+
+        {visit.downloaded_at && (
+          <span className="rounded bg-green-100 dark:bg-green-950/60 px-1.5 py-0.5 text-[10px] font-medium text-green-800 dark:text-green-300 flex-shrink-0">
+            {t('viewSessions.downloaded')}
+          </span>
+        )}
+        <span className="ml-auto flex-shrink-0 text-xs text-muted-foreground">
+          {formatDate(visit.visited_at, 'p')}
+        </span>
+      </div>
+      {isExpanded && (hasPageViews || hasLinkClicks) && (
+        <div className="ml-8 mt-2 border-l pl-4 space-y-3">
+          {hasPageViews && (
+            <PageViewsChart pageViews={visit.page_views} documentType={visit.dataroom_document_type} />
+          )}
+          {hasLinkClicks && (
+            <div className="mt-2 text-xs">
+              <h5 className="font-semibold text-gray-600 mb-1">{t('viewSessions.clickedLinks')}:</h5>
+              <ul className="space-y-1">
+                {visit.link_clicks.map((click) => (
+                  <li key={click.id} className="flex items-center gap-1">
+                    <span className="text-muted-foreground">{t('viewSessions.pageNumber', { number: click.page_number })}:</span>
+                    {click.url && isSafeUrl(click.url) ? (
+                      <a
+                        href={click.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline truncate max-w-[300px] sm:max-w-[400px]"
+                        title={click.url}
+                      >
+                        {click.url}
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground truncate max-w-[300px] sm:max-w-[400px]" title={click.url}>
+                        {click.url}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-muted-foreground ml-auto">
+                      {formatDate(click.clicked_at, 'p')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function formatDuration(seconds) {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
+export function ViewSessionsTable({ views, totalCount, loading, currentPage, onPageChange, pageSize, isDashboardWidget, contextType = 'document' }) {
+  const { t } = useTranslation();
+  const [expandedRowId, setExpandedRowId] = useState(null);
+
+  const totalPages = pageSize > 0 ? Math.ceil(totalCount / pageSize) : 0;
+
+  if (loading) {
+    return (
+      <div>
+        {!isDashboardWidget && <h2 className="text-xl font-semibold">{t('analytics.viewSessions')}</h2>}
+        <div className="mt-4 space-y-4">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!views || totalCount === 0) {
+    return (
+      <div>
+        {!isDashboardWidget && <h2 className="text-xl font-semibold">{t('analytics.viewSessions')}</h2>}
+        <div className="mt-4 rounded-lg border px-4 py-8 text-center">
+          <p className="text-muted-foreground">
+            {contextType === 'dataroom'
+              ? t('analytics.noViewsYetDataroom')
+              : t('analytics.noViewsYetDocument')}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <TooltipProvider>
+      <div>
+        {!isDashboardWidget && <h2 className="text-xl font-semibold">{t('analytics.viewSessions')}</h2>}
+        <div className="mt-4 overflow-hidden rounded-lg border">
+          <Table className={isDashboardWidget ? 'min-w-[950px]' : 'min-w-[750px]'}>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-8 px-2" />
+                <TableHead className="min-w-[160px] max-w-[220px] whitespace-nowrap">{t('analytics.visitor')}</TableHead>
+                <TableHead className="min-w-[130px] max-w-[180px] whitespace-nowrap">{t('analytics.link')}</TableHead>
+                {isDashboardWidget && <TableHead className="min-w-[150px] max-w-[220px] whitespace-nowrap">{t('analytics.document')}</TableHead>}
+                <TableHead className="w-36 whitespace-nowrap">{t('analytics.viewedAt')}</TableHead>
+                <TableHead className="w-36 whitespace-nowrap">{t('analytics.downloadedAt')}</TableHead>
+                <TableHead className="w-24 text-right whitespace-nowrap">{t('analytics.duration')}</TableHead>
+                <TableHead className="w-24 text-right whitespace-nowrap">{t('analytics.completion')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {views.map((view) => {
+                const { browser, os } = parseUserAgent(view.user_agent);
+                const deviceInfo = browser !== 'Unknown' ? `${browser} on ${os}` : t('analytics.unknownDevice');
+                const locationParts = [view.city, view.country].filter(Boolean);
+                const hasLocation = locationParts.length > 0;
+                const isExpanded = expandedRowId === view.id;
+                const hasPageViews = view.page_views && view.page_views.length > 0;
+                const hasDataroomVisits = view.dataroom_visits && view.dataroom_visits.length > 0;
+                const hasLinkClicks = view.link_clicks && view.link_clicks.length > 0;
+                const isExpandable = hasPageViews || hasDataroomVisits || hasLinkClicks;
+
+                return (
+                  <Fragment key={view.id}>
+                    <TableRow>
+                      <TableCell className="w-8 px-2">
+                        {isExpandable && (
+                          <button
+                            onClick={() => setExpandedRowId(isExpanded ? null : view.id)}
+                            className="flex items-center justify-center rounded-full p-1 hover:bg-gray-100"
+                            aria-expanded={isExpanded}
+                            aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </button>
+                        )}
+                      </TableCell>
+                      <TableCell className="min-w-[160px] max-w-[220px]">
+                        <div className="flex items-center gap-2 font-medium min-w-0">
+                          <span className="truncate" title={view.viewer_email || t('viewSessions.anonymous')}>
+                            {view.viewer_email || t('viewSessions.anonymous')}
+                          </span>
+                          {view.is_owner_view && (
+                            <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                              {t('viewSessions.you')}
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className="text-xs text-muted-foreground truncate"
+                          title={`${deviceInfo}${hasLocation ? ` - ${locationParts.join(', ')}` : ''}`}
+                        >
+                          {deviceInfo}
+                          {hasLocation ? (
+                            ` - ${locationParts.join(', ')}`
+                          ) : (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-default"> - {t('viewSessions.unknownLocation')}</span>
+                              </TooltipTrigger>
+                              {view.ip_address && (
+                                <TooltipContent>
+                                  <p>{view.ip_address}</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-[130px] max-w-[180px]">
+                        <div className="truncate" title={view.share_link_name || t('links.untitledLink')}>
+                          {view.share_link_name || t('links.untitledLink')}
+                        </div>
+                      </TableCell>
+                      {isDashboardWidget && (
+                        <TableCell className="min-w-[150px] max-w-[220px]">
+                          {view.document_id ? (
+                            <Link
+                              to={`/documents/${view.document_id}`}
+                              className="inline-flex items-center gap-1.5 max-w-full hover:underline"
+                              title={view.document_name}
+                            >
+                              <FileTypeIcon type={view.document_type} className="h-4 w-4 shrink-0" />
+                              <span className="truncate">{view.document_name}</span>
+                            </Link>
+                          ) : view.dataroom_id ? (
+                            <Link
+                              to={`/datarooms/${view.dataroom_id}`}
+                              className="inline-flex items-center gap-1.5 max-w-full hover:underline"
+                              title={view.dataroom_name}
+                            >
+                              <FolderIcon className="h-4 w-4 text-blue-500 shrink-0" />
+                              <span className="truncate">{view.dataroom_name}</span>
+                            </Link>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </TableCell>
+                      )}
+                      <TableCell className="w-36 whitespace-nowrap text-muted-foreground">
+                        {formatDate(view.viewed_at, 'PP p')}
+                      </TableCell>
+                      <TableCell className="w-36 whitespace-nowrap text-muted-foreground">
+                        {view.downloaded_at
+                          ? formatDate(view.downloaded_at, 'PP p')
+                          : '—'}
+                      </TableCell>
+                      <TableCell className="w-24 text-right whitespace-nowrap">
+                        {formatDuration(view.duration_seconds)}
+                      </TableCell>
+                      <TableCell className="w-24 text-right whitespace-nowrap">
+                        {hasDataroomVisits ? '—' : `${(view.completion_rate * 100).toFixed(0)}%`}
+                      </TableCell>
+                    </TableRow>
+                    {isExpanded && isExpandable && (
+                      <TableRow className="bg-gray-50 hover:bg-gray-50">
+                        <TableCell colSpan={isDashboardWidget ? 8 : 7}>
+                          {hasDataroomVisits ? (
+                            <div className="p-4">
+                              <h4 className="mb-2 text-sm font-semibold">{t('viewSessions.activityLog')}</h4>
+                              <ul className="space-y-3">
+                                {view.dataroom_visits.map((visit) => (
+                                  <DataroomVisitRow key={visit.id} visit={visit} />
+                                ))}
+                              </ul>
+                            </div>
+                          ) : (hasPageViews || hasLinkClicks) ? (
+                            <div className="p-4 space-y-4">
+                              {hasPageViews && (
+                                <PageViewsChart pageViews={view.page_views} documentType={view.document_type} />
+                              )}
+                              {hasLinkClicks && (
+                                <div className={`${hasPageViews ? 'border-t pt-3' : ''}`}>
+                                  <h4 className="text-sm font-semibold mb-2">{t('viewSessions.clickedLinks')}</h4>
+                                  <ul className="space-y-2 text-xs">
+                                    {view.link_clicks.map((click) => (
+                                      <li key={click.id} className="flex items-center gap-1">
+                                        <span className="text-muted-foreground">{t('viewSessions.pageNumber', { number: click.page_number })}:</span>
+                                        {click.url && isSafeUrl(click.url) ? (
+                                          <a
+                                            href={click.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline truncate max-w-[300px] sm:max-w-[400px]"
+                                            title={click.url}
+                                          >
+                                            {click.url}
+                                          </a>
+                                        ) : (
+                                          <span className="text-muted-foreground truncate max-w-[300px] sm:max-w-[400px]" title={click.url}>
+                                            {click.url}
+                                          </span>
+                                        )}
+                                        <span className="text-[10px] text-muted-foreground ml-auto">
+                                          {formatDate(click.clicked_at, 'p')}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+        <Pagination
+          totalPages={totalPages}
+          currentPage={currentPage}
+          onPageChange={onPageChange}
+        />
+      </div>
+    </TooltipProvider>
+  );
+}

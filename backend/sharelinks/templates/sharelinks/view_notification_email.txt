@@ -1,0 +1,24 @@
+{% load i18n %}{% if owner_name %}{% blocktrans %}Hi {{ owner_name }},{% endblocktrans %}{% else %}{% trans "Hi," %}{% endif %}
+
+{% if headline %}{{ headline }}{% else %}{% blocktrans %}Just letting you know that your shared item, '{{ target_name }}', was viewed.{% endblocktrans %}{% endif %}
+
+{% trans "View Details:" %}
+- {% trans "Operating System:" %} {{ os }}
+- {% trans "Browser:" %} {{ browser }}
+- {% trans "Time:" %} {{ viewed_at|date:"F j, Y, P" }}
+- {% trans "IP Address:" %} {{ ip_address }}
+- {% trans "Approximate Location:" %} {{ location }}
+
+{% if activity_stats_txt %}
+{% trans "File View Details:" %}
+{% for stat in activity_stats_txt %}{{ stat }}
+{% endfor %}
+{% endif %}
+{% if show_details_url %}
+{% trans "View Session Details:" %}
+{{ show_details_url }}
+{% endif %}
+
+{% trans "Thank you," %}
+{% trans "The Coneshare Team" %}
+

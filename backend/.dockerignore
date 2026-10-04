@@ -1,0 +1,15 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+.venv
+
+*~
+db.sqlite3
+tests
+.pytest_cache
+logs/**
+bdd
+docs
+media/**
+backend/local_settings.py

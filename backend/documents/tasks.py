@@ -1,0 +1,709 @@
+import json
+import logging
+import os
+import tempfile
+import subprocess
+import requests
+from pathlib import Path
+from io import BytesIO
+from celery import shared_task
+from pdf2image import convert_from_bytes, pdfinfo_from_bytes
+from pypdf import PdfReader
+from PIL import Image, ImageOps
+
+from datetime import timedelta
+from django.conf import settings
+from django.utils import timezone
+from django.db.models import Q
+
+from core.services import get_dynamic_setting
+from .fileserver import fileserver_client
+from .models import Document, DocumentPage, DocumentVersion, Folder
+from .pdf_utils import extract_text_layout_for_pdf
+
+
+logger = logging.getLogger('tasks')
+
+
+@shared_task
+def convert_office_to_pdf_task(version_id):
+    """
+    Converts an office document (e.g., .docx, .pptx) to a PDF.
+    This is the first stage in a two-stage processing pipeline.
+    """
+    try:
+        version = DocumentVersion.objects.select_related('document').get(id=version_id)
+        document = version.document
+
+        if version.has_pages:
+            version.render_status = DocumentVersion.RENDER_READY
+            version.render_error = ''
+            version.save(update_fields=['render_status', 'render_error', 'updated_at'])
+            return
+
+        version.render_status = DocumentVersion.RENDER_PROCESSING
+        version.render_error = ''
+        version.save(update_fields=['render_status', 'render_error', 'updated_at'])
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = Path(temp_dir)
+            
+            original_file_name = Path(version.original_storage_key).name
+            original_file_path = temp_dir_path / original_file_name
+
+            # 1. Download original file from storage
+            download_url = fileserver_client.generate_download_url(version.original_storage_key)
+            response = requests.get(download_url, stream=True)
+            response.raise_for_status()
+            with open(original_file_path, 'wb') as f_out:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f_out.write(chunk)
+
+            # 2. Convert to PDF using LibreOffice
+            subprocess.run(
+                ["libreoffice", "--headless", "--convert-to", "pdf", "--outdir", temp_dir, original_file_path],
+                check=True, timeout=300  # 5 minute timeout
+            )
+            
+            pdf_path = temp_dir_path / f"{original_file_path.stem}.pdf"
+            if not pdf_path.exists():
+                raise FileNotFoundError("LibreOffice did not create a PDF file.")
+
+            # 3. Upload new PDF to storage
+            # TODO(refactor): Migrate to fileserver_client.upload_file(new_storage_key, pdf_file) in a separate chore PR
+            base_path, _ = os.path.splitext(version.original_storage_key)
+            new_storage_key = f"{base_path}.pdf"
+
+            upload_url = fileserver_client.generate_upload_url(new_storage_key)
+            with open(pdf_path, 'rb') as pdf_file:
+                upload_response = requests.put(upload_url, data=pdf_file)
+                upload_response.raise_for_status()
+
+            # 4. Update the document version to point to the new PDF
+            version.storage_key = new_storage_key
+            version.content_type = 'application/pdf'
+            version.type = 'pdf'
+            version.save(update_fields=['storage_key', 'content_type', 'type', 'updated_at'])
+            
+            # 5. Trigger the next stage of processing
+            generate_pdf_pages_task.delay(version.id)
+
+    except DocumentVersion.DoesNotExist:
+        return
+    except Exception as e:
+        if 'version' in locals():
+            version.render_status = DocumentVersion.RENDER_FAILED
+            version.render_error = str(e)[:1000]
+            version.save(update_fields=['render_status', 'render_error', 'updated_at'])
+        logger.error(f"Error converting document version {version_id}: {e}")
+
+
+def _resolve_pdf_object(obj):
+    # NOTE: We use id() as a best-effort cycle guard. CPython may reuse addresses
+    # for collected objects, but the while-loop's resolved-is-obj identity check
+    # provides a secondary safety net.
+    visited = set()
+    while hasattr(obj, "get_object"):
+        obj_id = id(obj)
+        if obj_id in visited:
+            break
+        visited.add(obj_id)
+        resolved = obj.get_object()
+        if resolved is obj:
+            break
+        obj = resolved
+    return obj
+
+
+def _extract_links_for_page(pdf_page, page_num):
+    """
+    Helper to extract and normalize link annotations from a single PDF page.
+    """
+    media_box = pdf_page.mediabox
+    page_w = float(media_box.width) if media_box.width else 0.0
+    page_h = float(media_box.height) if media_box.height else 0.0
+
+    links = []
+    if page_w <= 0 or page_h <= 0:
+        return links
+
+    annots_obj = _resolve_pdf_object(pdf_page.get("/Annots"))
+    if not annots_obj:
+        return links
+
+    try:
+        annots_iter = iter(annots_obj)
+    except TypeError:
+        logger.warning(f"Page {page_num} annotations object is not iterable.")
+        return links
+
+    for annot in annots_iter:
+        try:
+            obj = _resolve_pdf_object(annot)
+            if not obj or _resolve_pdf_object(obj.get("/Subtype")) != "/Link":
+                continue
+
+            action = _resolve_pdf_object(obj.get("/A"))
+            rect = _resolve_pdf_object(obj.get("/Rect"))
+            uri = None
+            if action and _resolve_pdf_object(action.get("/S")) == "/URI":
+                uri_obj = _resolve_pdf_object(action.get("/URI"))
+                if isinstance(uri_obj, bytes):
+                    uri = uri_obj.decode("utf-8", errors="ignore")
+                elif isinstance(uri_obj, str):
+                    uri = uri_obj
+
+            if not rect or not uri:
+                continue
+
+            # Rect: [v1, v2, v3, v4] (origin at bottom-left).
+            # PDF specs allow these coordinates to be written in arbitrary order.
+            # We use min/max to normalize coordinates and prevent negative widths/heights.
+            rect_values = [float(_resolve_pdf_object(v)) for v in rect]
+            v1, v2, v3, v4 = rect_values
+            x1 = min(v1, v3)
+            y1 = min(v2, v4)
+            x2 = max(v1, v3)
+            y2 = max(v2, v4)
+
+            links.append({
+                "url": uri,
+                "bbox": {
+                    "left": (x1 / page_w) * 100,
+                    "top": ((page_h - y2) / page_h) * 100,
+                    "width": ((x2 - x1) / page_w) * 100,
+                    "height": ((y2 - y1) / page_h) * 100
+                }
+            })
+        except Exception as annot_err:
+            logger.warning(f"Error parsing annot for link on page {page_num}: {annot_err}")
+
+    return links
+
+
+
+
+@shared_task
+def generate_pdf_pages_task(version_id):
+    """
+    A Celery task to process a PDF file from a DocumentVersion, extract its pages
+    as images, and save them to storage.
+    """
+    try:
+        version = DocumentVersion.objects.select_related('document').get(id=version_id)
+        document = version.document
+    except DocumentVersion.DoesNotExist:
+        return  # Or log an error
+
+    try:
+        if version.has_pages:
+            version.render_status = DocumentVersion.RENDER_READY
+            version.render_error = ''
+            version.save(update_fields=['render_status', 'render_error', 'updated_at'])
+            return
+
+        version.render_status = DocumentVersion.RENDER_PROCESSING
+        version.render_error = ''
+        version.save(update_fields=['render_status', 'render_error', 'updated_at'])
+
+        # 1. Fetch PDF from storage
+        download_url = fileserver_client.generate_download_url(version.storage_key)
+        response = requests.get(download_url)
+        response.raise_for_status()
+        pdf_bytes = response.content
+
+        # Get page count before full conversion
+        info = pdfinfo_from_bytes(pdf_bytes, timeout=60)
+        page_count = info.get("Pages", 0)
+
+        max_pages = get_dynamic_setting('MAX_PREVIEW_PAGES')
+        if page_count > max_pages:
+            version.refresh_from_db(fields=['is_primary'])
+            version.num_pages = page_count
+            version.render_status = DocumentVersion.RENDER_FAILED
+            version.render_error = "Document has too many pages to generate a preview."
+            version.save(update_fields=['num_pages', 'render_status', 'render_error', 'updated_at'])
+
+            if version.is_primary:
+                document.status = 'ready'
+                document.num_pages = page_count
+                document.status_message = "Document has too many pages to generate a preview."
+                document.save(update_fields=['status', 'num_pages', 'status_message', 'updated_at'])
+
+            logger.info(f"Skipping page generation for document {document.id}, page count ({page_count}) > {max_pages}.")
+            return
+
+        # 2. Convert PDF pages to images (PNG)
+        images = convert_from_bytes(pdf_bytes, fmt='png')
+
+        # Extract links using pypdf (best-effort)
+        # We wrap the entire block in a single outer try-except. This catches document-level parsing
+        # issues (e.g. invalid PDF header on PdfReader initialization, or metadata index errors)
+        # and lets the task fallback gracefully to rendering page JPEGs without crashing.
+        page_links_by_num = {}
+        try:
+            reader = PdfReader(BytesIO(pdf_bytes))
+            num_pdf_pages = len(reader.pages)
+            for idx in range(num_pdf_pages):
+                page_num = idx + 1
+                try:
+                    pdf_page = reader.pages[idx]
+                    links = _extract_links_for_page(pdf_page, page_num)
+                    if links:
+                        page_links_by_num[page_num] = {"links": links}
+                except Exception as page_err:
+                    logger.warning(f"Error extracting links from page {page_num}: {page_err}")
+        except Exception as reader_err:
+            logger.warning(f"Failed to parse PDF annotations/links via pypdf: {reader_err}")
+
+        # Extract text layout using pdftotext (best-effort)
+        page_text_by_num = extract_text_layout_for_pdf(pdf_bytes)
+
+        # 3. Save page images and create DB records
+        base_path, _ = os.path.splitext(version.original_storage_key)
+        version.pages.all().delete()
+        for i, image in enumerate(images):
+            page_num = i + 1
+            page_storage_key = f"{base_path}_page_{page_num}.png"
+
+            buffer = BytesIO()
+            image.save(buffer, format='PNG')
+            
+            # TODO(refactor): Migrate to fileserver_client.upload_file(page_storage_key, buffer.getvalue()) in a separate chore PR
+            upload_url = fileserver_client.generate_upload_url(page_storage_key)
+            upload_response = requests.put(upload_url, data=buffer.getvalue())
+            upload_response.raise_for_status()
+
+            DocumentPage.objects.create(
+                document_version=version,
+                page_number=page_num,
+                storage_key=page_storage_key,
+                page_links=page_links_by_num.get(page_num, {"links": []}),
+                metadata={"text_content": page_text_by_num.get(page_num, {"lines": []})},
+            )
+
+        # 4. Finalize status and metadata
+        num_pages = len(images)
+        version.refresh_from_db(fields=['is_primary'])
+        version.num_pages = num_pages
+        version.has_pages = True
+        version.render_status = DocumentVersion.RENDER_READY
+        version.render_error = ''
+        version.save(update_fields=[
+            'num_pages', 'has_pages', 'render_status', 'render_error', 'updated_at'
+        ])
+
+        if version.is_primary:
+            document.num_pages = num_pages
+            document.storage_key = version.storage_key
+            document.status = 'ready'
+            document.status_message = ''
+            document.save(update_fields=[
+                'num_pages', 'storage_key', 'status', 'status_message', 'updated_at'
+            ])
+
+    except Exception as e:
+        version.render_status = DocumentVersion.RENDER_FAILED
+        version.render_error = str(e)[:1000]
+        version.save(update_fields=['render_status', 'render_error', 'updated_at'])
+        # Consider more robust logging in a real application
+        logger.error(f"Error processing document version {version_id}: {e}")
+
+
+@shared_task
+def generate_video_stream_task(version_id):
+    """
+    A Celery task to process an uploaded video file, transcode/segment it into
+    HLS format, and save the playlist and segments to the file system.
+    """
+    try:
+        version = DocumentVersion.objects.select_related('document').get(id=version_id)
+        document = version.document
+    except DocumentVersion.DoesNotExist:
+        return
+
+    try:
+        if version.render_status == DocumentVersion.RENDER_READY:
+            return
+
+        version.render_status = DocumentVersion.RENDER_PROCESSING
+        version.render_error = ''
+        version.save(update_fields=['render_status', 'render_error', 'updated_at'])
+
+        # 1. Fetch original video from storage
+        download_url = fileserver_client.generate_download_url(version.original_storage_key)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = Path(temp_dir)
+            original_file_name = Path(version.original_storage_key).name
+            original_file_path = temp_dir_path / original_file_name
+
+            with requests.get(download_url, stream=True) as response:
+                response.raise_for_status()
+                with open(original_file_path, 'wb') as f_out:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f_out.write(chunk)
+
+            # 2. Extract duration of the video using ffprobe
+            d_probe = subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(original_file_path)],
+                capture_output=True, text=True, check=True
+            )
+            duration = int(float(d_probe.stdout.strip()))
+
+            # 3. Detect video attributes (codec, dimensions, pixel format) and audio codec
+            v_probe = subprocess.run(
+                [
+                    "ffprobe", "-v", "error", "-select_streams", "v:0",
+                    "-show_entries", "stream=codec_name,width,height,pix_fmt",
+                    "-of", "json", str(original_file_path)
+                ],
+                capture_output=True, text=True, check=True
+            )
+            v_codec = ""
+            v_width = 0
+            v_height = 0
+            v_pix_fmt = ""
+            try:
+                probe_data = json.loads(v_probe.stdout)
+                streams = probe_data.get("streams", [])
+                if streams:
+                    v_codec = streams[0].get("codec_name", "") or ""
+                    v_width = int(streams[0].get("width", 0) or 0)
+                    v_height = int(streams[0].get("height", 0) or 0)
+                    v_pix_fmt = streams[0].get("pix_fmt", "") or ""
+            except (json.JSONDecodeError, ValueError, TypeError):
+                v_codec = v_probe.stdout.strip()
+
+            a_probe = subprocess.run(
+                ["ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=codec_name", "-of", "default=noprint_wrappers=1:nokey=1", str(original_file_path)],
+                capture_output=True, text=True, check=False
+            )
+            a_codec = a_probe.stdout.strip()
+
+            # 4. Formulate the ffmpeg command.
+            transcode_preset = settings.VIDEO_TRANSCODE_PRESET
+            transcode_threads = str(settings.VIDEO_TRANSCODE_THREADS)
+            max_width = settings.VIDEO_TRANSCODE_MAX_WIDTH
+            max_height = settings.VIDEO_TRANSCODE_MAX_HEIGHT
+            scale_filter = (
+                f"scale='min({max_width},iw)':min'({max_height},ih)':force_original_aspect_ratio=decrease,"
+                f"scale=trunc(iw/2)*2:trunc(ih/2)*2"
+            )
+
+            playlist_name = "playlist.m3u8"
+            # Bound filter graph threads, input decoder threads, and output encoder threads
+            ffmpeg_cmd = [
+                "nice", "-n", "19",
+                "ffmpeg",
+                "-filter_threads", transcode_threads,
+                "-threads", transcode_threads,
+                "-i", str(original_file_path),
+                "-threads", transcode_threads,
+            ]
+
+            # Video stream handling: only copy if already web-standard H.264, 8-bit YUV 4:2:0, and within bounds
+            can_copy_video = (
+                v_codec == 'h264'
+                and v_pix_fmt == 'yuv420p'
+                and 0 < v_width <= max_width
+                and 0 < v_height <= max_height
+            )
+
+            if can_copy_video:
+                ffmpeg_cmd += ["-vcodec", "copy"]
+            else:
+                ffmpeg_cmd += [
+                    "-vcodec", "libx264",
+                    "-preset", transcode_preset,
+                    "-pix_fmt", "yuv420p",
+                    "-vf", scale_filter,
+                ]
+
+            # Audio stream handling
+            if a_codec in ('aac', 'mp3', ''):
+                ffmpeg_cmd += ["-acodec", "copy"]
+            else:
+                ffmpeg_cmd += ["-acodec", "aac"]
+
+            # HLS segmenting options
+            ffmpeg_cmd += [
+                "-start_number", "0",
+                "-hls_time", "10",
+                "-hls_list_size", "0",
+                "-f", "hls",
+                str(temp_dir_path / playlist_name)
+            ]
+
+            subprocess.run(ffmpeg_cmd, check=True, timeout=900)  # 15 min timeout max for video encoding
+
+            # 5. Save output HLS files (.m3u8 and .ts) to local file server
+            base_path, _ = os.path.splitext(version.original_storage_key)
+            hls_prefix = f"{base_path}_hls"
+
+            # Scan the temporary directory for generated HLS files
+            for file_path in temp_dir_path.iterdir():
+                if not file_path.is_file():
+                    continue
+                if file_path.name == original_file_name:
+                    continue  # skip input file
+                
+                # The output file storage key
+                # TODO(refactor): Migrate to fileserver_client.upload_file(storage_key, f_in) in a separate chore PR
+                storage_key = f"{hls_prefix}/{file_path.name}"
+                upload_url = fileserver_client.generate_upload_url(storage_key)
+                
+                with open(file_path, 'rb') as f_in:
+                    upload_response = requests.put(upload_url, data=f_in)
+                    upload_response.raise_for_status()
+
+            # 6. Update database record
+            version.refresh_from_db(fields=['is_primary'])
+            version.storage_key = f"{hls_prefix}/{playlist_name}"
+            version.length = duration
+            version.render_status = DocumentVersion.RENDER_READY
+            version.render_error = ''
+            version.save(update_fields=['storage_key', 'length', 'render_status', 'render_error', 'updated_at'])
+
+            if version.is_primary:
+                document.storage_key = version.storage_key
+                document.status = 'ready'
+                document.status_message = ''
+                document.save(update_fields=['storage_key', 'status', 'status_message', 'updated_at'])
+
+    except Exception as e:
+        logger.error(f"Error processing video version {version_id}: {e}")
+        try:
+            version.render_status = DocumentVersion.RENDER_FAILED
+            version.render_error = str(e)[:1000]
+            version.save(update_fields=['render_status', 'render_error', 'updated_at'])
+        except Exception:
+            pass
+
+
+@shared_task
+def transcode_heic_image_task(version_id):
+    """Transcodes a HEIC/HEIF image into a web-safe JPEG preview asset."""
+    try:
+        version = DocumentVersion.objects.select_related('document').get(id=version_id)
+        document = version.document
+
+        if version.has_pages:
+            version.render_status = DocumentVersion.RENDER_READY
+            version.render_error = ''
+            version.save(update_fields=['render_status', 'render_error', 'updated_at'])
+            return
+
+        version.render_status = DocumentVersion.RENDER_PROCESSING
+        version.render_error = ''
+        version.save(update_fields=['render_status', 'render_error', 'updated_at'])
+
+        # 1. Download original HEIC file
+        download_url = fileserver_client.generate_download_url(version.original_storage_key)
+        response = requests.get(download_url, timeout=(10, 120))
+        response.raise_for_status()
+
+        # 2. Decode and normalize
+        with Image.open(BytesIO(response.content)) as raw_img:
+            # Auto-rotate based on EXIF tags
+            img = ImageOps.exif_transpose(raw_img)
+
+            # Convert palette/transparency to RGB for JPEG
+            if img.mode in ('RGBA', 'LA', 'P'):
+                rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+                rgb_img.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+                img = rgb_img
+            elif img.mode != 'RGB':
+                img = img.convert('RGB')
+
+            # Mandatory 2560px downsampling guard (OOM and load time protection)
+            max_dimension = 2560
+            if img.width > max_dimension or img.height > max_dimension:
+                img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
+
+            # 3. Export to JPEG buffer
+            buffer = BytesIO()
+            img.save(buffer, format='JPEG', quality=88, optimize=True)
+            buffer.seek(0)
+            img_width, img_height = img.width, img.height
+
+        # 4. Upload preview asset (using tasks.py storage key naming convention)
+        base_path, _ = os.path.splitext(version.original_storage_key)
+        page_storage_key = f"{base_path}_page_1.jpg"
+        fileserver_client.upload_file(page_storage_key, buffer.getvalue(), content_type='image/jpeg')
+
+        # 5. Persist DocumentPage and update version
+        version.pages.all().delete()
+        DocumentPage.objects.create(
+            document_version=version,
+            page_number=1,
+            storage_key=page_storage_key,
+            metadata={"width": img_width, "height": img_height},
+            page_links={"links": []},
+        )
+
+        version.num_pages = 1
+        version.has_pages = True
+        version.render_status = DocumentVersion.RENDER_READY
+        version.render_error = ''
+        version.save(update_fields=['num_pages', 'has_pages', 'render_status', 'render_error', 'updated_at'])
+
+        if version.is_primary:
+            document.num_pages = 1
+            document.status = 'ready'
+            document.status_message = ''
+            document.save(update_fields=['num_pages', 'status', 'status_message', 'updated_at'])
+
+    except Exception as e:
+        logger.exception(f"Failed to transcode HEIC version {version_id}: {e}")
+        try:
+            version = DocumentVersion.objects.get(id=version_id)
+            version.render_status = DocumentVersion.RENDER_FAILED
+            version.render_error = f"Failed to transcode HEIC image: {str(e)}"
+            version.save(update_fields=['render_status', 'render_error', 'updated_at'])
+        except Exception:
+            pass
+
+
+@shared_task
+def purge_expired_trash_documents_task():
+    """
+    Daily Celery task to permanently purge soft-deleted items that have been
+    in the trash for more than 30 days.
+    """
+    # Inline import required here to prevent circular import loop with documents.services
+    from .services import delete_document_and_files, delete_folder_and_contents
+
+    threshold = timezone.now() - timedelta(days=30)
+
+    expired_folders = Folder.objects.deleted().filter(
+        deleted_at__lt=threshold
+    ).filter(
+        Q(parent__isnull=True) | Q(parent__deleted_at__isnull=True)
+    )
+    for folder in list(expired_folders):
+        try:
+            delete_folder_and_contents(folder)
+        except Exception as e:
+            logger.error(f"Failed to auto-purge expired folder {folder.id}: {e}")
+
+    expired_docs = Document.objects.deleted().filter(
+        deleted_at__lt=threshold
+    ).filter(
+        Q(folder__isnull=True) | Q(folder__deleted_at__isnull=True)
+    )
+    for doc in list(expired_docs):
+        try:
+            delete_document_and_files(doc)
+        except Exception as e:
+            logger.error(f"Failed to auto-purge expired document {doc.id}: {e}")
+
+
+@shared_task
+def generate_spreadsheet_preview_task(version_id):
+    """
+    A Celery task to parse an uploaded spreadsheet file (.xlsx, .csv),
+    convert it to a sanitized, multi-sheet JSON structure, and save it to storage.
+    """
+    try:
+        version = DocumentVersion.objects.select_related('document').get(id=version_id)
+        document = version.document
+    except DocumentVersion.DoesNotExist:
+        return
+
+    try:
+        # Check if already generated
+        if (
+            version.storage_key
+            and version.storage_key.endswith('_spreadsheet.json')
+            and version.render_status == DocumentVersion.RENDER_READY
+        ):
+            return
+
+        version.render_status = DocumentVersion.RENDER_PROCESSING
+        version.render_error = ''
+        version.save(update_fields=['render_status', 'render_error', 'updated_at'])
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = Path(temp_dir)
+            original_file_name = Path(version.original_storage_key).name
+            original_file_path = temp_dir_path / original_file_name
+
+            # 1. Download original file from storage
+            download_url = fileserver_client.generate_download_url(version.original_storage_key)
+            response = requests.get(download_url, stream=True, timeout=(5, 60))
+            response.raise_for_status()
+            with open(original_file_path, 'wb') as f_out:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f_out.write(chunk)
+
+            # 2. Parse into preview JSON
+            from .spreadsheet_utils import parse_xlsx_to_preview_data, parse_csv_to_preview_data
+            ext = original_file_path.suffix.lower()
+            doc_name = document.name if document else original_file_name
+
+            if version.content_type == 'text/csv' or ext == '.csv':
+                preview_data = parse_csv_to_preview_data(str(original_file_path), doc_name)
+            elif ext == '.xls' or version.content_type == 'application/vnd.ms-excel':
+                # Convert legacy .xls to modern .xlsx using headless LibreOffice in an isolated directory
+                conv_dir = temp_dir_path / "converted"
+                conv_dir.mkdir(parents=True, exist_ok=True)
+                try:
+                    subprocess.run(
+                        ["libreoffice", "--headless", "--convert-to", "xlsx", "--outdir", str(conv_dir), str(original_file_path)],
+                        check=True, timeout=120, capture_output=True, text=True
+                    )
+                except subprocess.CalledProcessError as proc_err:
+                    err_msg = proc_err.stderr.strip() if proc_err.stderr else str(proc_err)
+                    logger.error(f"LibreOffice conversion failed for version {version_id}: {err_msg}")
+                    raise RuntimeError(f"LibreOffice conversion failed: {err_msg}") from proc_err
+                converted_xlsx = conv_dir / f"{original_file_path.stem}.xlsx"
+                if not converted_xlsx.exists():
+                    xlsx_matches = list(conv_dir.glob("*.xlsx"))
+                    if xlsx_matches:
+                        converted_xlsx = xlsx_matches[0]
+                    else:
+                        raise FileNotFoundError(f"LibreOffice failed to convert {original_file_name} to XLSX.")
+                preview_data = parse_xlsx_to_preview_data(str(converted_xlsx), doc_name)
+            else:
+                preview_data = parse_xlsx_to_preview_data(str(original_file_path), doc_name)
+
+            json_bytes = json.dumps(preview_data, separators=(',', ':')).encode('utf-8')
+
+            # 3. Upload JSON to storage
+            base_path, _ = os.path.splitext(version.original_storage_key)
+            new_storage_key = f"{base_path}_spreadsheet.json"
+
+            upload_url = fileserver_client.generate_upload_url(new_storage_key)
+            upload_response = requests.put(upload_url, data=json_bytes, timeout=(5, 60))
+            upload_response.raise_for_status()
+
+            # 4. Finalize metadata and status
+            sheet_count = len(preview_data.get('sheets', []))
+            version.refresh_from_db(fields=['is_primary'])
+            version.storage_key = new_storage_key
+            version.type = 'spreadsheet'
+            version.content_type = 'application/json'
+            version.num_pages = sheet_count
+            version.has_pages = False
+            version.render_status = DocumentVersion.RENDER_READY
+            version.render_error = ''
+            version.save(update_fields=[
+                'storage_key', 'type', 'content_type', 'num_pages', 'has_pages',
+                'render_status', 'render_error', 'updated_at'
+            ])
+
+            if version.is_primary:
+                document.type = 'spreadsheet'
+                document.num_pages = sheet_count
+                document.status = 'ready'
+                document.status_message = ''
+                document.save(update_fields=['type', 'num_pages', 'status', 'status_message', 'updated_at'])
+
+    except Exception as e:
+        version.render_status = DocumentVersion.RENDER_FAILED
+        version.render_error = str(e)[:1000]
+        version.save(update_fields=['render_status', 'render_error', 'updated_at'])
+        logger.error(f"Error processing spreadsheet version {version_id}: {e}")
+
+

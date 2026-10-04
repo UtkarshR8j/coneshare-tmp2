@@ -1,0 +1,545 @@
+import csv
+from datetime import datetime
+import io
+import json
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.db.models import BigIntegerField, Q, Sum, Value
+from django.db.models.functions import Coalesce, Lower
+from django.http import HttpResponse
+from django.utils.translation import gettext as _
+from rest_framework import permissions, status, viewsets, serializers
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from drf_spectacular.utils import extend_schema, extend_schema_field, inline_serializer
+
+from core.pagination import AdminPagination, StandardResultsSetPagination
+from core.permissions import APIKeyTierPermission, IsAdmin
+from datarooms.models import Dataroom, DataroomCollaborator
+from datarooms.serializers import DataroomSerializer
+from documents.models import Document
+from documents.services import recalculate_user_document_size
+from filerequests.models import SecurityThreatEvent
+from sharelinks.models import ShareLink, ViewSession
+from sharelinks.serializers import ShareLinkSerializer
+from .models import AppConfiguration, LoginActivity, Organization
+from .settings_registry import (DEFAULT_SETTINGS, coerce_to_typed_value,
+                                deserialize_db_value, serialize_typed_to_db_value)
+from .serializers import (AdminResetPasswordSerializer, AppConfigurationSerializer, LoginActivitySerializer,
+                          UserSerializer, OrganizationSerializer)
+
+User = get_user_model()
+
+
+def format_bytes(num_bytes: int) -> str:
+    if num_bytes is None or num_bytes == 0:
+        return '0 B'
+    units = ['B', 'KB', 'MB', 'GB', 'TB']
+    val = float(num_bytes)
+    unit_idx = 0
+    while val >= 1024.0 and unit_idx < len(units) - 1:
+        val /= 1024.0
+        unit_idx += 1
+    return f"{val:.2f} {units[unit_idx]}" if unit_idx > 0 else f"{int(val)} B"
+
+
+def csv_safe(value) -> str:
+    """
+    Sanitizes values against CSV Formula Injection (CWE-1236).
+    Prepends a single quote if the string begins with =, +, -, @, \\t, \\r, or \\n.
+    """
+    val_str = '' if value is None else str(value)
+    if val_str and val_str[0] in ('=', '+', '-', '@', '\t', '\r', '\n'):
+        return f"'{val_str}"
+    return val_str
+
+
+class AdminSettingUpdateSerializer(serializers.Serializer):
+    value = serializers.JSONField()
+
+
+class AdminSettingsViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for superusers to manage application settings.
+    This view dynamically merges settings from the database with defaults from settings.py.
+    """
+    queryset = AppConfiguration.objects.all()
+    serializer_class = AppConfigurationSerializer
+    permission_classes = [IsAuthenticated, IsAdmin, APIKeyTierPermission]
+    lookup_field = 'key'
+
+    def list(self, request, *args, **kwargs):
+        existing_settings = {s.key: s for s in self.get_queryset()}
+        
+        results = []
+        for key, config in DEFAULT_SETTINGS.items():
+            setting_type = config['type']
+            default_value = getattr(settings, key)
+            if key in existing_settings:
+                obj = existing_settings[key]
+                value = deserialize_db_value(setting_type, obj.value, default_value)
+                raw_value = obj.value
+                description = obj.description
+            else:
+                value = default_value
+                raw_value = serialize_typed_to_db_value(setting_type, default_value)
+                description = config['description']
+
+            results.append({
+                'key': key,
+                'value': value,
+                'raw_value': raw_value,
+                'value_type': setting_type,
+                'description': description
+            })
+
+        # results.sort(key=lambda x: x['key'])
+        return Response(results)
+
+    def update(self, request, *args, **kwargs):
+        key = self.kwargs.get(self.lookup_field)
+        if key not in DEFAULT_SETTINGS:
+            return Response({'detail': 'Setting not found.'}, status=status.HTTP_404_NOT_FOUND)
+            
+        serializer = AdminSettingUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        value = serializer.validated_data.get('value')
+
+        config = DEFAULT_SETTINGS[key]
+        description = config['description']
+        setting_type = config['type']
+        try:
+            coerced_value = coerce_to_typed_value(setting_type, value)
+        except (ValueError, TypeError):
+            raise serializers.ValidationError({'value': f'Invalid value for type {setting_type}.'})
+        stored_value = serialize_typed_to_db_value(setting_type, coerced_value)
+
+        obj, created = AppConfiguration.objects.update_or_create(
+            key=key,
+            defaults={'value': stored_value, 'description': description}
+        )
+
+        return Response({
+            'key': key,
+            'value': deserialize_db_value(setting_type, obj.value, getattr(settings, key)),
+            'raw_value': obj.value,
+            'value_type': setting_type,
+            'description': description,
+        })
+
+
+class AdminUserDetailSerializer(UserSerializer):
+    total_links = serializers.SerializerMethodField()
+    total_datarooms = serializers.SerializerMethodField()
+    total_views = serializers.SerializerMethodField()
+
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + ['total_links', 'total_datarooms', 'total_views']
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_total_links(self, obj) -> int:
+        return ShareLink.objects.filter(created_by=obj).count()
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_total_datarooms(self, obj) -> int:
+        return Dataroom.objects.filter(created_by=obj).count()
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_total_views(self, obj) -> int:
+        return ViewSession.objects.filter(share_link__created_by=obj).count()
+
+
+AdminUserPagination = AdminPagination
+
+
+class AdminUserViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for admins to manage users in their organization.
+    """
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated, IsAdmin, APIKeyTierPermission]
+    pagination_class = AdminPagination
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return AdminUserDetailSerializer
+        if self.action == 'reset_password':
+            return AdminResetPasswordSerializer
+        return UserSerializer
+
+    def list(self, request, *args, **kwargs):
+        page_param = request.query_params.get('page', '1')
+        is_first_page = str(page_param).strip() in ('1', '')
+
+        # Metrics for KPI cards (only calculated on first/initial page)
+        if is_first_page and self.paginator:
+            user = request.user
+            org = user.organization
+
+            total_users = User.objects.filter(organization=org).count()
+            total_storage_bytes = Document.objects.filter(
+                organization=org,
+                deleted_at__isnull=True
+            ).aggregate(
+                total=Coalesce(Sum('file_size'), Value(0, output_field=BigIntegerField()))
+            )['total']
+
+            creator_ids = Dataroom.objects.filter(organization=org).values_list('created_by_id', flat=True)
+            collab_ids = DataroomCollaborator.objects.filter(dataroom__organization=org).values_list('user_id', flat=True)
+            dataroom_user_ids = set(creator_ids).union(set(collab_ids))
+            dataroom_user_ids.discard(None)
+            dataroom_users = len(dataroom_user_ids)
+
+            self.paginator.metrics = {
+                'total_users': total_users,
+                'total_storage_bytes': total_storage_bytes,
+                'dataroom_users': dataroom_users,
+            }
+
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        summary="Export users to CSV",
+        description="Exports organization users matching current filters to a CSV file.",
+        responses={200: bytes},
+    )
+    @action(detail=False, methods=['get'])
+    def export(self, request, *args, **kwargs):
+        """
+        Exports filtered organization users to a downloadable CSV file.
+        Includes UTF-8 BOM for seamless Microsoft Excel and Numbers compatibility.
+        """
+        queryset = self.get_queryset()
+
+        buffer = io.StringIO()
+        buffer.write('\ufeff')
+
+        writer = csv.writer(buffer)
+        writer.writerow([
+            'Name',
+            'Email',
+            'Role',
+            'Status',
+            'Storage Usage',
+            'Storage Used (Bytes)',
+            'Date Joined (UTC)',
+        ])
+
+        for user in queryset:
+            usage_bytes = user.total_document_size or 0
+            quota_mb = user.effective_file_size_quota_mb
+            quota_str = f"{quota_mb} MB" if quota_mb and quota_mb > 0 else "Unlimited"
+            usage_str = f"{format_bytes(usage_bytes)} / {quota_str}"
+
+            date_joined_str = (
+                user.date_joined.strftime('%Y-%m-%d %H:%M:%S UTC')
+                if user.date_joined
+                else ''
+            )
+
+            writer.writerow([
+                csv_safe(user.name),
+                csv_safe(user.email),
+                user.role.capitalize() if user.role else '',
+                'Active' if user.is_active else 'Inactive',
+                usage_str,
+                usage_bytes,
+                date_joined_str,
+            ])
+
+        filename = f"users_export_{datetime.now().strftime('%Y-%m-%d')}.csv"
+        response = HttpResponse(buffer.getvalue(), content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+    def get_queryset(self):
+        """
+        Admins can see, search, and filter all users in their organization.
+        """
+        user = self.request.user
+        queryset = User.objects.filter(organization=user.organization)
+
+        # Search parameter across name, email, and username
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) |
+                Q(email__icontains=search) |
+                Q(username__icontains=search)
+            )
+
+        # Status / Role / Dataroom filter
+        status_filter = self.request.query_params.get('status', 'all').strip().lower()
+        if status_filter == 'admin':
+            queryset = queryset.filter(role='admin')
+        elif status_filter == 'member':
+            queryset = queryset.filter(role='member')
+        elif status_filter == 'inactive':
+            queryset = queryset.filter(is_active=False)
+        elif status_filter == 'dataroom_participant':
+            creator_ids = Dataroom.objects.filter(organization=user.organization).values_list('created_by_id', flat=True)
+            collab_ids = DataroomCollaborator.objects.filter(dataroom__organization=user.organization).values_list('user_id', flat=True)
+            participant_ids = set(creator_ids).union(set(collab_ids))
+            participant_ids.discard(None)
+            queryset = queryset.filter(id__in=participant_ids)
+
+        # Ordering parameter
+        ordering = self.request.query_params.get('ordering', '').strip()
+        allowed_ordering = {
+            'name': 'name',
+            '-name': '-name',
+            'role': 'role',
+            '-role': '-role',
+            'status': 'is_active',
+            '-status': '-is_active',
+            'storage': 'total_document_size',
+            '-storage': '-total_document_size',
+            'created': 'date_joined',
+            '-created': '-date_joined',
+            'date_joined': 'date_joined',
+            '-date_joined': '-date_joined',
+        }
+        if ordering in allowed_ordering:
+            db_order = allowed_ordering[ordering]
+            if db_order in ('name', '-name'):
+                order_field = Lower('name').asc() if db_order == 'name' else Lower('name').desc()
+                queryset = queryset.order_by(order_field, '-date_joined')
+            else:
+                queryset = queryset.order_by(db_order, '-date_joined')
+        else:
+            queryset = queryset.order_by('-date_joined')
+
+        return queryset
+
+    def perform_create(self, serializer):
+        """
+        When an admin creates a user, associate the user with the admin's organization.
+        """
+        serializer.save(organization=self.request.user.organization)
+
+    def perform_update(self, serializer):
+        """
+        When an admin updates a user, prevent them from removing the last active admin.
+        """
+        instance = self.get_object()
+
+        new_role = serializer.validated_data.get('role', instance.role)
+        new_is_active = serializer.validated_data.get('is_active', instance.is_active)
+
+        # These checks only apply when an active admin is being demoted or deactivated.
+        if instance.role == 'admin':
+            is_demoting = new_role != 'admin'
+            is_deactivating = instance.is_active and new_is_active is False
+
+            if is_demoting or is_deactivating:
+                active_admins = User.objects.filter(
+                    organization=instance.organization,
+                    role='admin',
+                    is_active=True
+                )
+                if active_admins.count() == 1 and active_admins.first() == instance:
+                    raise serializers.ValidationError({
+                        "detail": "Cannot demote or deactivate the last active admin of the organization."
+                    })
+                if instance == self.request.user:
+                    raise serializers.ValidationError({
+                        "detail": "Admins cannot demote or deactivate their own account."
+                    })
+
+        serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        # These checks only apply when an active admin is being deleted.
+        if instance.role == 'admin':
+            active_admins = User.objects.filter(
+                organization=instance.organization,
+                role='admin',
+                is_active=True
+            )
+            if active_admins.count() == 1 and active_admins.first() == instance:
+                return Response({"detail": "Cannot delete the last active admin of the organization."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            if instance == request.user:
+                return Response({"detail": "Admins cannot delete their own account."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['get'], url_path='share-links')
+    def share_links(self, request, pk=None):
+        user = self.get_object()
+        queryset = ShareLink.objects.filter(created_by=user).order_by('-created_at')
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = ShareLinkSerializer(page, many=True, context=self.get_serializer_context())
+            return self.get_paginated_response(serializer.data)
+
+        serializer = ShareLinkSerializer(queryset, many=True, context=self.get_serializer_context())
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='datarooms')
+    def datarooms(self, request, pk=None):
+        user = self.get_object()
+        queryset = Dataroom.objects.filter(created_by=user).order_by('-created_at')
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = DataroomSerializer(page, many=True, context=self.get_serializer_context())
+            return self.get_paginated_response(serializer.data)
+
+        serializer = DataroomSerializer(queryset, many=True, context=self.get_serializer_context())
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='recalculate-quota')
+    def recalculate_quota(self, request, pk=None):
+        user = self.get_object()
+        recalculate_user_document_size(user)
+        serializer = AdminUserDetailSerializer(user, context=self.get_serializer_context())
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        request=AdminResetPasswordSerializer,
+        responses={
+            status.HTTP_200_OK: inline_serializer(
+                name='AdminUserResetPasswordResponse',
+                fields={'message': serializers.CharField()},
+            )
+        },
+        description="Resets a user's password and blacklists all active JWT refresh tokens."
+    )
+    @action(detail=True, methods=['post'], url_path='reset-password')
+    def reset_password(self, request, pk=None):
+        """
+        Resets a user's password and blacklists all active JWT refresh tokens.
+        """
+        user = self.get_object()
+        serializer = AdminResetPasswordSerializer(data=request.data, context={'user': user})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'message': _('Password reset successfully.')}, status=status.HTTP_200_OK)
+
+
+class AdminLoginActivityViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint for admins to view user login activities.
+    """
+    queryset = LoginActivity.objects.all()
+    serializer_class = LoginActivitySerializer
+    permission_classes = [IsAuthenticated, IsAdmin, APIKeyTierPermission]
+    pagination_class = AdminPagination
+
+    def get_queryset(self):
+        """
+        Admins can see all login activities for users in their organization.
+        Can be filtered by `user_id`.
+        """
+        user = self.request.user
+        queryset = LoginActivity.objects.filter(
+            user__organization=user.organization
+        ).select_related('user').order_by('-created_at')
+
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+
+        return queryset
+
+
+class SecurityThreatEventSerializer(serializers.ModelSerializer):
+    file_request_slug = serializers.CharField(source='file_request.slug', read_only=True)
+
+    class Meta:
+        model = SecurityThreatEvent
+        fields = [
+            'id',
+            'event_type',
+            'severity',
+            'status',
+            'file_request',
+            'file_request_slug',
+            'storage_key',
+            'file_name',
+            'file_size',
+            'content_type',
+            'uploader_name',
+            'uploader_email',
+            'scanner_engine',
+            'scanner_message',
+            'storage_cleanup_status',
+            'storage_cleanup_at',
+            'storage_cleanup_error',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = fields
+
+
+class AdminSecurityThreatEventViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint for admins to view security threat events for file requests.
+    """
+    # Dummy queryset for OpenAPI schema generation to infer lookup field type without executing get_queryset().
+    queryset = SecurityThreatEvent.objects.none()
+    serializer_class = SecurityThreatEventSerializer
+    permission_classes = [IsAuthenticated, IsAdmin, APIKeyTierPermission]
+    pagination_class = AdminPagination
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = SecurityThreatEvent.objects.filter(
+            organization=user.organization
+        ).select_related('file_request').order_by('-created_at')
+
+        status_value = self.request.query_params.get('status')
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+
+        severity = self.request.query_params.get('severity')
+        if severity:
+            queryset = queryset.filter(severity=severity)
+
+        event_type = self.request.query_params.get('event_type')
+        if event_type:
+            queryset = queryset.filter(event_type=event_type)
+
+        return queryset
+
+
+class AdminOrganizationView(APIView):
+    """
+    View for admins to retrieve or update their organization's branding/settings.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin, APIKeyTierPermission]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    @extend_schema(
+        request=OrganizationSerializer,
+        responses={200: OrganizationSerializer},
+    )
+    def get(self, request):
+        serializer = OrganizationSerializer(request.user.organization, context={'request': request})
+        return Response(serializer.data)
+
+    @extend_schema(
+        request=OrganizationSerializer,
+        responses={200: OrganizationSerializer},
+    )
+    def patch(self, request):
+        serializer = OrganizationSerializer(
+            request.user.organization,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

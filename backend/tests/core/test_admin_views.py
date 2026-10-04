@@ -1,0 +1,712 @@
+import pytest
+from rest_framework import status
+
+from core.models import AppConfiguration, Organization, User
+from documents.models import Folder
+from filerequests.models import FileRequest
+from filerequests.models import SecurityThreatEvent
+
+
+@pytest.mark.django_db
+class TestAdminUserViewSetProtection:
+    """
+    Tests to ensure the last active admin of an organization cannot be removed.
+    """
+
+    def test_update_cannot_remove_last_admin(self, admin_api_client, admin_user):
+        """Tests that the last active admin of an organization cannot be demoted or deactivated."""
+        organization = admin_user.organization
+        
+        # At this point, admin_user is the only active admin.
+        # Try to demote self.
+        url = f'/api/v1/admin/users/{admin_user.id}/'
+        response_demote = admin_api_client.patch(url, {'role': 'user'})
+        assert response_demote.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'Cannot demote or deactivate the last active admin' in response_demote.json()['detail']
+
+        # Try to deactivate self.
+        response_deactivate = admin_api_client.patch(url, {'is_active': False})
+        assert response_deactivate.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'Cannot demote or deactivate the last active admin' in response_deactivate.json()['detail']
+
+    def test_admin_cannot_demote_self_even_if_not_last(self, admin_api_client, admin_user):
+        """An admin cannot demote or deactivate their own account, even if other admins exist."""
+        organization = admin_user.organization
+        # Create a second admin
+        User.objects.create_user(
+            username='otheradmin@example.com', email='otheradmin@example.com', organization=organization, role='admin'
+        )
+
+        # The logged-in admin (admin_user) tries to demote themselves.
+        url = f'/api/v1/admin/users/{admin_user.id}/'
+        response = admin_api_client.patch(url, {'role': 'user'})
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'Admins cannot demote or deactivate their own account' in response.json()['detail']
+
+    def test_admin_can_demote_another_admin_if_not_last(self, admin_api_client, admin_user):
+        """An admin can demote another admin as long as they are not the last one."""
+        organization = admin_user.organization
+        # Create a second admin to be the target of the demotion.
+        other_admin = User.objects.create_user(
+            username='otheradmin@example.com', email='otheradmin@example.com', organization=organization, role='admin'
+        )
+
+        # The logged-in admin (admin_user) tries to demote other_admin.
+        # This should succeed because admin_user will remain as an active admin.
+        url = f'/api/v1/admin/users/{other_admin.id}/'
+        response = admin_api_client.patch(url, {'role': 'user'})
+
+        assert response.status_code == status.HTTP_200_OK
+        
+        other_admin.refresh_from_db()
+        assert other_admin.role == 'user'
+
+        # Verify that the actor is still the last remaining admin.
+        active_admins = User.objects.filter(
+            organization=organization, role='admin', is_active=True
+        )
+        assert active_admins.count() == 1
+        assert active_admins.first() == admin_user
+
+    def test_admin_can_delete_another_admin_if_not_last(self, admin_api_client, admin_user):
+        """An admin can delete another admin as long as at least one active admin remains."""
+        organization = admin_user.organization
+        # Create a second admin to be the target of deletion.
+        target_admin = User.objects.create_user(
+            username='target@example.com', email='target@example.com', organization=organization, role='admin'
+        )
+
+        # At this point, there are two active admins: admin_user (the actor, authenticated
+        # via admin_api_client) and target_admin. The deletion should be allowed.
+        url = f'/api/v1/admin/users/{target_admin.id}/'
+        response = admin_api_client.delete(url)
+
+        # Assert that the deletion was successful.
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not User.objects.filter(id=target_admin.id).exists()
+        
+        # The original actor should still exist and be the last admin.
+        assert User.objects.filter(id=admin_user.id).exists()
+        assert User.objects.filter(
+            organization=organization, role='admin', is_active=True
+        ).count() == 1
+
+    def test_delete_self_is_prevented_when_last_admin(self, admin_api_client, admin_user):
+        """An admin cannot delete themselves if they are the last admin."""
+        # Ensure admin_user is the only active admin
+        User.objects.filter(
+            organization=admin_user.organization, role='admin', is_active=True
+        ).exclude(pk=admin_user.pk).delete()
+
+        url = f'/api/v1/admin/users/{admin_user.id}/'
+        response = admin_api_client.delete(url)
+        # The original check was for `instance == request.user`.
+        # The new check should be for last admin.
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'Cannot delete the last active admin' in response.json()['detail']
+
+
+@pytest.mark.django_db
+class TestAdminSettingsTypedValues:
+    def test_list_settings_includes_value_type(self, admin_api_client):
+        response = admin_api_client.get('/api/v1/admin/settings/')
+        assert response.status_code == status.HTTP_200_OK
+        settings_by_key = {item['key']: item for item in response.json()}
+        assert settings_by_key['ENABLE_PUBLIC_SIGNUP']['value_type'] == 'bool'
+        assert isinstance(settings_by_key['ENABLE_PUBLIC_SIGNUP']['value'], bool)
+        assert settings_by_key['MAX_FILES_PER_UPLOAD']['value_type'] == 'int'
+        assert isinstance(settings_by_key['MAX_FILES_PER_UPLOAD']['value'], int)
+
+    def test_update_bool_setting_accepts_boolean_and_persists_canonical_value(self, admin_api_client):
+        response = admin_api_client.patch(
+            '/api/v1/admin/settings/ENABLE_PUBLIC_SIGNUP/',
+            {'value': True},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()['value'] is True
+        assert response.json()['value_type'] == 'bool'
+        db_value = AppConfiguration.objects.get(key='ENABLE_PUBLIC_SIGNUP').value
+        assert db_value == 'true'
+
+    def test_update_int_setting_rejects_invalid_type(self, admin_api_client):
+        response = admin_api_client.patch(
+            '/api/v1/admin/settings/MAX_FILES_PER_UPLOAD/',
+            {'value': 'not-an-int'},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'value' in response.json()
+
+
+@pytest.mark.django_db
+class TestAdminSecurityThreatEventsViewSet:
+    def test_list_security_threat_events_scoped_to_org(self, admin_api_client, admin_user, file_request):
+        own_event = SecurityThreatEvent.objects.create(
+            organization=admin_user.organization,
+            owner_user=admin_user,
+            file_request=file_request,
+            event_type=SecurityThreatEvent.EventType.MALWARE_DETECTED,
+            severity=SecurityThreatEvent.Severity.HIGH,
+            status=SecurityThreatEvent.Status.NEW,
+            file_name='malware.exe',
+            uploader_email='bad@example.com',
+            scanner_message='FOUND',
+        )
+
+        other_org = Organization.objects.create(name='Other Org Threats')
+        other_org_admin = User.objects.create_user(
+            username='other-org-admin@example.com',
+            email='other-org-admin@example.com',
+            password='password',
+            role='admin',
+            organization=other_org,
+        )
+        other_org_root = Folder.objects.get_root_for_org(other_org)
+        other_org_file_request = FileRequest.objects.create(
+            name='Other Org Request',
+            folder=other_org_root,
+            created_by=other_org_admin,
+        )
+        SecurityThreatEvent.objects.create(
+            organization=other_org,
+            owner_user=other_org_admin,
+            file_request=other_org_file_request,
+            event_type=SecurityThreatEvent.EventType.SCAN_FAILED,
+            severity=SecurityThreatEvent.Severity.MEDIUM,
+            status=SecurityThreatEvent.Status.NEW,
+            file_name='unknown.pdf',
+            uploader_email='other@example.com',
+            scanner_message='timeout',
+        )
+
+        response = admin_api_client.get('/api/v1/admin/security-threat-events/')
+        assert response.status_code == status.HTTP_200_OK
+        results = response.json()['results']
+        assert len(results) == 1
+        assert results[0]['id'] == str(own_event.id)
+        assert results[0]['file_request_slug'] == file_request.slug
+
+    def test_filter_security_threat_events(self, admin_api_client, admin_user, file_request):
+        SecurityThreatEvent.objects.create(
+            organization=admin_user.organization,
+            owner_user=admin_user,
+            file_request=file_request,
+            event_type=SecurityThreatEvent.EventType.MALWARE_DETECTED,
+            severity=SecurityThreatEvent.Severity.HIGH,
+            status=SecurityThreatEvent.Status.NEW,
+        )
+        SecurityThreatEvent.objects.create(
+            organization=admin_user.organization,
+            owner_user=admin_user,
+            file_request=file_request,
+            event_type=SecurityThreatEvent.EventType.SCAN_FAILED,
+            severity=SecurityThreatEvent.Severity.MEDIUM,
+            status=SecurityThreatEvent.Status.RESOLVED,
+        )
+
+        response = admin_api_client.get('/api/v1/admin/security-threat-events/?severity=high&status=new')
+        assert response.status_code == status.HTTP_200_OK
+        results = response.json()['results']
+        assert len(results) == 1
+        assert results[0]['severity'] == 'high'
+        assert results[0]['status'] == 'new'
+
+    def test_non_admin_cannot_list_security_threat_events(self, api_client):
+        response = api_client.get('/api/v1/admin/security-threat-events/')
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestAdminOrganizationView:
+    def test_get_organization_branding(self, admin_api_client, admin_user):
+        url = '/api/v1/admin/organization/'
+        response = admin_api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['name'] == admin_user.organization.name
+        assert 'brand_name' in response.data
+        assert 'brand_logo_url' in response.data
+        assert 'terms_url' in response.data
+        assert 'privacy_policy_url' in response.data
+
+    def test_patch_organization_branding(self, admin_api_client, admin_user):
+        url = '/api/v1/admin/organization/'
+        data = {
+            'brand_name': 'My Custom Brand',
+            'brand_website_url': 'https://mycustombrand.com',
+            'terms_url': 'https://mycustombrand.com/terms',
+            'privacy_policy_url': 'https://mycustombrand.com/privacy',
+        }
+        response = admin_api_client.patch(url, data, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['brand_name'] == 'My Custom Brand'
+        assert response.data['brand_website_url'] == 'https://mycustombrand.com'
+        assert response.data['terms_url'] == 'https://mycustombrand.com/terms'
+        assert response.data['privacy_policy_url'] == 'https://mycustombrand.com/privacy'
+        
+        admin_user.organization.refresh_from_db()
+        assert admin_user.organization.brand_name == 'My Custom Brand'
+        assert admin_user.organization.brand_website_url == 'https://mycustombrand.com'
+        assert admin_user.organization.branding_extras.get('terms_url') == 'https://mycustombrand.com/terms'
+        assert admin_user.organization.branding_extras.get('privacy_policy_url') == 'https://mycustombrand.com/privacy'
+
+    def test_patch_organization_branding_with_svg_logo(self, admin_api_client, admin_user):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        url = '/api/v1/admin/organization/'
+        svg_content = b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><circle cx="5" cy="5" r="4"/></svg>'
+        svg_file = SimpleUploadedFile("logo.svg", svg_content, content_type="image/svg+xml")
+
+        data = {
+            'brand_name': 'My Custom Brand',
+            'brand_logo': svg_file,
+        }
+        response = admin_api_client.patch(url, data, format='multipart')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['brand_name'] == 'My Custom Brand'
+        assert 'logo.svg' in response.data['brand_logo_url']
+
+        admin_user.organization.refresh_from_db()
+        assert admin_user.organization.brand_name == 'My Custom Brand'
+        assert admin_user.organization.brand_logo.name.endswith('logo.svg')
+
+    def test_patch_organization_branding_clear_fields_and_partial_update(self, admin_api_client, admin_user):
+        url = '/api/v1/admin/organization/'
+        
+        # 1. Set values first
+        data = {
+            'terms_url': 'https://mycustombrand.com/terms',
+            'privacy_policy_url': 'https://mycustombrand.com/privacy',
+        }
+        response = admin_api_client.patch(url, data, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['terms_url'] == 'https://mycustombrand.com/terms'
+        assert response.data['privacy_policy_url'] == 'https://mycustombrand.com/privacy'
+
+        # 2. Perform partial update (omit privacy_policy_url, clear terms_url)
+        data_partial = {
+            'terms_url': '',
+        }
+        response = admin_api_client.patch(url, data_partial, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['terms_url'] == ''
+        assert response.data['privacy_policy_url'] == 'https://mycustombrand.com/privacy'
+
+        admin_user.organization.refresh_from_db()
+        assert admin_user.organization.branding_extras.get('terms_url') == ''
+        assert admin_user.organization.branding_extras.get('privacy_policy_url') == 'https://mycustombrand.com/privacy'
+
+    def test_non_admin_cannot_access_branding(self, api_client):
+        url = '/api/v1/admin/organization/'
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_recalculate_user_quota_success(self, admin_api_client, admin_user):
+        from documents.models import Document
+        # Create a member user with corrupted total_document_size
+        member = User.objects.create_user(
+            username='member_quota@example.com',
+            email='member_quota@example.com',
+            organization=admin_user.organization,
+            role='member',
+            total_document_size=9999999,  # Corrupted / drifted value
+        )
+
+        # Create two active documents and one deleted document for this member
+        Document.objects.create(
+            organization=admin_user.organization,
+            created_by=member,
+            name='doc1.pdf',
+            file_size=1024,
+            status='ready'
+        )
+        Document.objects.create(
+            organization=admin_user.organization,
+            created_by=member,
+            name='doc2.pdf',
+            file_size=2048,
+            status='ready'
+        )
+        from django.utils import timezone
+        Document.objects.create(
+            organization=admin_user.organization,
+            created_by=member,
+            name='doc_deleted.pdf',
+            file_size=5000,
+            status='ready',
+            deleted_at=timezone.now(),
+        )
+
+        url = f'/api/v1/admin/users/{member.id}/recalculate-quota/'
+        response = admin_api_client.post(url)
+        assert response.status_code == status.HTTP_200_OK
+
+        member.refresh_from_db()
+        assert member.total_document_size == 1024 + 2048
+        assert response.data['total_document_size'] == 3072
+
+    def test_recalculate_user_quota_excludes_dataroom_vault_documents(self, admin_api_client, admin_user):
+        from documents.models import Document, Folder
+        from datarooms.models import Dataroom
+        from datarooms.services import get_or_create_dataroom_storage_folder
+
+        member = User.objects.create_user(
+            username='member_vault_quota@example.com',
+            email='member_vault_quota@example.com',
+            organization=admin_user.organization,
+            role='member',
+            total_document_size=50 * 1024 * 1024 + 1024,  # Bloated with historical vault upload
+        )
+
+        # 1. Personal document (1024 bytes)
+        Document.objects.create(
+            organization=admin_user.organization,
+            created_by=member,
+            name='personal_notes.pdf',
+            file_size=1024,
+            status='ready'
+        )
+
+        # 2. Modern Dataroom vault document (50 MB)
+        dataroom = Dataroom.objects.create(
+            name="Confidential Deal",
+            organization=admin_user.organization,
+            created_by=member,
+            storage_quota_mb=500,
+            storage_version=2
+        )
+        vault_folder = get_or_create_dataroom_storage_folder(dataroom, member)
+        Document.objects.create(
+            organization=admin_user.organization,
+            folder=vault_folder,
+            created_by=member,
+            name='deal_deck.pdf',
+            file_size=50 * 1024 * 1024,
+            status='ready'
+        )
+
+        # Admin triggers quota recalculation from user panel
+        url = f'/api/v1/admin/users/{member.id}/recalculate-quota/'
+        response = admin_api_client.post(url)
+        assert response.status_code == status.HTTP_200_OK
+
+        member.refresh_from_db()
+        # Only personal document (1024 bytes) must be counted
+        assert member.total_document_size == 1024
+        assert response.data['total_document_size'] == 1024
+
+    def test_recalculate_user_quota_non_admin_forbidden(self, api_client, user):
+        url = f'/api/v1/admin/users/{user.id}/recalculate-quota/'
+        response = api_client.post(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_recalculate_user_quota_other_org_not_found(self, admin_api_client, admin_user):
+        other_org = Organization.objects.create(name="Other Org")
+        other_user = User.objects.create_user(
+            username='other_org_user@example.com',
+            email='other_org_user@example.com',
+            organization=other_org,
+            role='member',
+        )
+        url = f'/api/v1/admin/users/{other_user.id}/recalculate-quota/'
+        response = admin_api_client.post(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.django_db
+class TestAdminUserResetPassword:
+    def test_admin_can_reset_user_password_and_invalidates_tokens(self, admin_api_client, admin_user, user):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+
+        # Generate a refresh token for user
+        token = RefreshToken.for_user(user)
+        refresh_str = str(token)
+
+        url = f'/api/v1/admin/users/{user.id}/reset-password/'
+        payload = {'password': 'BrandNewPassword2026!'}
+        response = admin_api_client.post(url, payload, format='json')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert 'message' in response.data
+
+        # Verify password changed
+        user.refresh_from_db()
+        assert user.check_password('BrandNewPassword2026!')
+        assert not user.check_password('testpass')
+
+        # Verify outstanding tokens are blacklisted
+        outstanding = OutstandingToken.objects.filter(user=user)
+        assert outstanding.exists()
+        for ot in outstanding:
+            assert BlacklistedToken.objects.filter(token=ot).exists()
+
+    def test_reset_user_password_weak_password_fails(self, admin_api_client, user):
+        url = f'/api/v1/admin/users/{user.id}/reset-password/'
+        payload = {'password': '12'}  # Below minimum length
+        response = admin_api_client.post(url, payload, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'password' in response.data
+
+    def test_reset_user_password_missing_password_fails(self, admin_api_client, user):
+        url = f'/api/v1/admin/users/{user.id}/reset-password/'
+        response = admin_api_client.post(url, {}, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'password' in response.data
+
+    def test_reset_user_password_non_admin_forbidden(self, api_client, user):
+        url = f'/api/v1/admin/users/{user.id}/reset-password/'
+        response = api_client.post(url, {'password': 'ValidPassword2026!'}, format='json')
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_reset_user_password_other_org_not_found(self, admin_api_client, admin_user):
+        other_org = Organization.objects.create(name="Other Org 2")
+        other_user = User.objects.create_user(
+            username='other_org_user2@example.com',
+            email='other_org_user2@example.com',
+            organization=other_org,
+            role='member',
+        )
+        url = f'/api/v1/admin/users/{other_user.id}/reset-password/'
+        response = admin_api_client.post(url, {'password': 'ValidPassword2026!'}, format='json')
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_reset_user_password_revocation_failure_rolls_back(self, admin_api_client, user, monkeypatch):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+
+        RefreshToken.for_user(user)
+
+        def mock_get_or_create(*args, **kwargs):
+            raise RuntimeError("Database error during token blacklisting")
+
+        monkeypatch.setattr(BlacklistedToken.objects, 'get_or_create', mock_get_or_create)
+
+        url = f'/api/v1/admin/users/{user.id}/reset-password/'
+        payload = {'password': 'BrandNewPassword2026!'}
+        with pytest.raises(RuntimeError, match="Database error during token blacklisting"):
+            admin_api_client.post(url, payload, format='json')
+
+        # Password must not be changed due to atomic rollback
+        user.refresh_from_db()
+        assert not user.check_password('BrandNewPassword2026!')
+        assert user.check_password('password')
+
+
+@pytest.mark.django_db
+class TestAdminUserListSearchFilterMetrics:
+    def test_list_returns_kpi_metrics(self, admin_api_client, admin_user, user):
+        from datarooms.models import Dataroom
+        # Create a dataroom by user
+        Dataroom.objects.create(
+            name="Alpha Dataroom",
+            organization=admin_user.organization,
+            created_by=user,
+        )
+
+        response = admin_api_client.get('/api/v1/admin/users/')
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert 'metrics' in data
+        metrics = data['metrics']
+        assert metrics['total_users'] >= 2
+        assert 'total_storage_bytes' in metrics
+        assert metrics['dataroom_users'] >= 1
+
+    def test_list_subpage_omits_kpi_metrics(self, admin_api_client, admin_user):
+        # Create enough users so page 2 has content (page_size=10)
+        org = admin_user.organization
+        for i in range(11):
+            User.objects.create(
+                email=f"subpage_user_{i}@example.com",
+                username=f"subpage_user_{i}",
+                name=f"Sub User {i}",
+                organization=org,
+            )
+
+        # Page 1 includes metrics
+        res1 = admin_api_client.get('/api/v1/admin/users/?page=1')
+        assert res1.status_code == status.HTTP_200_OK
+        assert 'metrics' in res1.json()
+
+        # Page 2 omits metrics to save query overhead
+        res2 = admin_api_client.get('/api/v1/admin/users/?page=2')
+        assert res2.status_code == status.HTTP_200_OK
+        assert 'metrics' not in res2.json()
+
+    def test_list_search_by_name_and_email(self, admin_api_client, admin_user, user):
+        user.name = "Unique Alice"
+        user.save()
+
+        # Search by name
+        res = admin_api_client.get('/api/v1/admin/users/?search=Unique+Alice')
+        assert res.status_code == status.HTTP_200_OK
+        names = [u['name'] for u in res.json()['results']]
+        assert "Unique Alice" in names
+        assert admin_user.name not in names
+
+        # Search by email
+        res = admin_api_client.get(f'/api/v1/admin/users/?search={user.email}')
+        assert res.status_code == status.HTTP_200_OK
+        emails = [u['email'] for u in res.json()['results']]
+        assert user.email in emails
+
+    def test_list_filter_status_and_role(self, admin_api_client, admin_user, user):
+        user.is_active = False
+        user.save()
+
+        # Filter admins
+        res_admin = admin_api_client.get('/api/v1/admin/users/?status=admin')
+        assert res_admin.status_code == status.HTTP_200_OK
+        for u in res_admin.json()['results']:
+            assert u['role'] == 'admin'
+
+        # Filter members
+        res_member = admin_api_client.get('/api/v1/admin/users/?status=member')
+        assert res_member.status_code == status.HTTP_200_OK
+        for u in res_member.json()['results']:
+            assert u['role'] == 'member'
+
+        # Filter inactive
+        res_inactive = admin_api_client.get('/api/v1/admin/users/?status=inactive')
+        assert res_inactive.status_code == status.HTTP_200_OK
+        for u in res_inactive.json()['results']:
+            assert u['is_active'] is False
+
+    def test_list_filter_dataroom_participant(self, admin_api_client, admin_user, user):
+        from datarooms.models import Dataroom
+        Dataroom.objects.create(
+            name="Audit Room",
+            organization=admin_user.organization,
+            created_by=user,
+        )
+
+        res = admin_api_client.get('/api/v1/admin/users/?status=dataroom_participant')
+        assert res.status_code == status.HTTP_200_OK
+        ids = [u['id'] for u in res.json()['results']]
+        assert str(user.id) in ids
+
+    def test_list_ordering(self, admin_api_client, admin_user, user):
+        user.name = "Zoe User"
+        user.save()
+        admin_user.name = "Adam Admin"
+        admin_user.save()
+
+        res_asc = admin_api_client.get('/api/v1/admin/users/?ordering=name')
+        assert res_asc.status_code == status.HTTP_200_OK
+        names = [u['name'] for u in res_asc.json()['results'] if u['name']]
+        assert names == sorted(names, key=str.lower)
+
+
+@pytest.mark.django_db
+class TestAdminUserExport:
+    """
+    Tests for GET /api/v1/admin/users/export/ CSV export endpoint.
+    """
+
+    def test_admin_can_export_users_csv(self, admin_api_client, admin_user, user):
+        import csv
+        import io
+
+        user.total_document_size = 10 * 1024 * 1024
+        user.custom_file_size_quota_mb = 500
+        user.save()
+
+        res = admin_api_client.get('/api/v1/admin/users/export/')
+        assert res.status_code == status.HTTP_200_OK
+        assert 'text/csv' in res['Content-Type']
+        assert 'attachment; filename=' in res['Content-Disposition']
+        assert res['Content-Disposition'].endswith('.csv"')
+
+        # Verify UTF-8 BOM
+        assert res.content.startswith(b'\xef\xbb\xbf')
+
+        # Parse CSV (skipping BOM)
+        csv_text = res.content.decode('utf-8-sig')
+        reader = list(csv.reader(io.StringIO(csv_text)))
+        assert len(reader) >= 3  # Header + admin_user + user
+
+        header = reader[0]
+        assert header == [
+            'Name',
+            'Email',
+            'Role',
+            'Status',
+            'Storage Usage',
+            'Storage Used (Bytes)',
+            'Date Joined (UTC)',
+        ]
+
+        rows_by_email = {row[1]: row for row in reader[1:]}
+        assert user.email in rows_by_email
+        user_row = rows_by_email[user.email]
+        assert user_row[0] == user.name
+        assert user_row[2] == 'Member'
+        assert user_row[3] == 'Active'
+        assert user_row[4] == '10.00 MB / 500 MB'
+        assert user_row[5] == str(10 * 1024 * 1024)
+        assert 'UTC' in user_row[6]
+
+    def test_export_users_csv_respects_filters(self, admin_api_client, admin_user, user):
+        import csv
+        import io
+
+        user.is_active = False
+        user.save()
+
+        # Filter by inactive
+        res = admin_api_client.get('/api/v1/admin/users/export/?status=inactive')
+        assert res.status_code == status.HTTP_200_OK
+        csv_text = res.content.decode('utf-8-sig')
+        reader = list(csv.reader(io.StringIO(csv_text)))
+        emails = [row[1] for row in reader[1:]]
+        assert user.email in emails
+        assert admin_user.email not in emails
+
+        # Filter by search
+        res = admin_api_client.get(f'/api/v1/admin/users/export/?search={admin_user.email}')
+        assert res.status_code == status.HTTP_200_OK
+        csv_text = res.content.decode('utf-8-sig')
+        reader = list(csv.reader(io.StringIO(csv_text)))
+        emails = [row[1] for row in reader[1:]]
+        assert admin_user.email in emails
+        assert user.email not in emails
+
+    def test_export_users_csv_sanitizes_formula_injection(self, admin_api_client, admin_user):
+        import csv
+        import io
+
+        User.objects.create_user(
+            username='formula_user',
+            email='=calc|x!A0@example.com',
+            name='@danger+cmd',
+            password='password',
+            role='member',
+            organization=admin_user.organization,
+        )
+
+        res = admin_api_client.get('/api/v1/admin/users/export/')
+        assert res.status_code == status.HTTP_200_OK
+
+        csv_text = res.content.decode('utf-8-sig')
+        reader = list(csv.reader(io.StringIO(csv_text)))
+
+        # Find row for the malicious user
+        matching_rows = [row for row in reader[1:] if '=calc' in row[1]]
+        assert len(matching_rows) == 1
+        row = matching_rows[0]
+
+        # Name and Email must be prepended with a single quote to prevent spreadsheet formula execution
+        assert row[0] == "'@danger+cmd"
+        assert row[1] == "'=calc|x!A0@example.com"
+
+    def test_non_admin_cannot_export_users_csv(self, api_client, user):
+        api_client.force_authenticate(user=user)
+        res = api_client.get('/api/v1/admin/users/export/')
+        assert res.status_code == status.HTTP_403_FORBIDDEN
+
+
+
+
