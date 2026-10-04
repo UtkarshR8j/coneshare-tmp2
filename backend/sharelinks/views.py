@@ -35,7 +35,8 @@ from core.i18n_utils import resolve_email_language
 from core.services import get_dynamic_setting
 from datarooms.models import (DataroomDocument, DataroomFolder, DataroomItemOrder)
 from datarooms.serializers import (PublicDataroomDocumentSerializer,
-                                   PublicDataroomFolderSerializer)
+                                   PublicDataroomFolderSerializer,
+                                   build_dataroom_branding_context)
 from datarooms.views import get_dataroom_queryset_for_user
 from documents.fileserver import fileserver_client
 from documents.services import (
@@ -819,6 +820,7 @@ class ShareLinkViewDataView(APIView):
                     'brand_accent_color': dataroom.brand_accent_color,
                     'parent_folder_id': parent_folder_id,
                     'breadcrumbs': breadcrumbs,
+                    **build_dataroom_branding_context(dataroom),
                 }
             except serializers.ValidationError as e:
                 return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
@@ -1186,6 +1188,7 @@ class ShareLinkViewDataView(APIView):
                 'brand_accent_color': dataroom.brand_accent_color,
                 'current_parent_id': current_parent_id,
                 'breadcrumbs': breadcrumbs,
+                **build_dataroom_branding_context(dataroom),
                 'items': paginated_items,
                 'pagination': {
                     # Contract intentionally mirrors common limit/offset APIs.

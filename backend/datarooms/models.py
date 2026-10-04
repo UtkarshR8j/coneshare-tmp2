@@ -9,10 +9,41 @@ DROOM_ITEM_TYPE_FOLDER = "folder"
 DROOM_ITEM_TYPE_DOCUMENT = "document"
 
 
+BANNER_MODE_SINGLE = "single"
+BANNER_MODE_GALLERY = "gallery"
+BANNER_MODE_NONE = "none"
+BANNER_MODE_CHOICES = (
+    (BANNER_MODE_SINGLE, "Single banner image"),
+    (BANNER_MODE_GALLERY, "Banner gallery"),
+    (BANNER_MODE_NONE, "No banner"),
+)
+
+LOGO_MODE_ORG = "org"
+LOGO_MODE_DATAROOM = "dataroom"
+LOGO_MODE_NONE = "none"
+LOGO_MODE_CHOICES = (
+    (LOGO_MODE_ORG, "Organization logo (fallback)"),
+    (LOGO_MODE_DATAROOM, "Dataroom logo"),
+    (LOGO_MODE_NONE, "No logo"),
+)
+
+
 def dataroom_branding_banner_path(instance, filename):
     _, extension = os.path.splitext(filename)
     ext = extension or ".png"
     return f"dataroom-branding/{instance.organization_id}/{instance.id}/banner{ext}"
+
+
+def dataroom_branding_logo_path(instance, filename):
+    _, extension = os.path.splitext(filename)
+    ext = extension or ".png"
+    return f"dataroom-branding/{instance.organization_id}/{instance.id}/logo{ext}"
+
+
+def dataroom_gallery_image_path(instance, filename):
+    _, extension = os.path.splitext(filename)
+    ext = extension or ".jpg"
+    return f"dataroom-branding/{instance.dataroom.organization_id}/{instance.dataroom_id}/gallery/{instance.id}{ext}"
 
 
 class Dataroom(BaseModel):
@@ -21,7 +52,27 @@ class Dataroom(BaseModel):
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='datarooms_created')
     show_file_index = models.BooleanField(default=True)
     enable_qna = models.BooleanField(default=True)
+    enable_telemetry_access = models.BooleanField(
+        default=False,
+        help_text="Show the 'View telemetry' button in the share viewer for this dataroom.",
+    )
     branding_banner = models.ImageField(upload_to=dataroom_branding_banner_path, null=True, blank=True)
+    banner_mode = models.CharField(
+        max_length=16,
+        choices=BANNER_MODE_CHOICES,
+        default=BANNER_MODE_SINGLE,
+        help_text="Which banner surface to render on the share page: single image, gallery, or none.",
+    )
+    brand_logo_override = models.ImageField(
+        upload_to=dataroom_branding_logo_path, null=True, blank=True,
+        help_text="Optional per-dataroom logo; falls back to the organization logo when empty.",
+    )
+    logo_mode = models.CharField(
+        max_length=16,
+        choices=LOGO_MODE_CHOICES,
+        default=LOGO_MODE_ORG,
+        help_text="Which logo surface to render: dataroom override, organization logo, or none.",
+    )
     brand_primary_color = models.CharField(max_length=9, null=True, blank=True)
     brand_secondary_color = models.CharField(max_length=9, null=True, blank=True)
     brand_accent_color = models.CharField(max_length=9, null=True, blank=True)
@@ -41,6 +92,21 @@ class Dataroom(BaseModel):
 
     def __str__(self):
         return self.name
+
+
+class DataroomBannerImage(BaseModel):
+    """One image in a dataroom's banner gallery. `position` drives render order."""
+    dataroom = models.ForeignKey(Dataroom, on_delete=models.CASCADE, related_name='banner_images')
+    image = models.ImageField(upload_to=dataroom_gallery_image_path)
+    caption = models.CharField(max_length=255, blank=True, default="")
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['position', 'created_at']
+        unique_together = [('dataroom', 'position')]
+
+    def __str__(self):
+        return f"{self.dataroom_id} banner image #{self.position}"
 
 
 class DataroomFolder(BaseModel):

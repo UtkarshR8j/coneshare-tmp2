@@ -27,7 +27,7 @@ from documents.services import (
 from documents.fileserver import fileserver_client
 from sharelinks.models import DataroomVisit, ViewSession
 from sharelinks.serializers import ViewSessionSerializer
-from .models import Dataroom, DataroomCollaborator, DataroomDocument, DataroomFolder, DataroomItemOrder
+from .models import Dataroom, DataroomCollaborator, DataroomDocument, DataroomFolder, DataroomItemOrder, DataroomBannerImage
 from .services import (
     delete_dataroom,
     remove_dataroom_content,
@@ -48,7 +48,8 @@ from .serializers import (
     DataroomAddCollaboratorSerializer, DataroomTransferOwnershipSerializer,
     MoveDataroomContentSerializer, RemoveContentSerializer,
     ReorderDataroomItemsSerializer, EnsureDataroomFolderPathsSerializer,
-    DataroomUploadRequestSerializer, DataroomUploadFinalizeSerializer)
+    DataroomUploadRequestSerializer, DataroomUploadFinalizeSerializer,
+    DataroomBannerImageSerializer, DataroomBannerImageCreateSerializer)
 
 
 logger = logging.getLogger(__name__)
@@ -135,6 +136,68 @@ class DataroomViewSet(viewsets.ModelViewSet):
         old_name = self.get_object().name
         instance = serializer.save()
         sync_dataroom_rename(instance, old_name)
+
+    @action(detail=True, methods=['get', 'post'], url_path='banner-images')
+    def banner_images(self, request, pk=None):
+        dataroom = self.get_object()
+        if request.method == 'GET':
+            serializer = DataroomBannerImageSerializer(
+                dataroom.banner_images.all(), many=True
+            )
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        if not is_dataroom_owner_or_admin(request.user, dataroom):
+            raise PermissionDenied(
+                "Only the dataroom owner or an organization admin can modify branding."
+            )
+        serializer = DataroomBannerImageCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        position = serializer.validated_data.get('position')
+        caption = serializer.validated_data.get('caption', '')
+        image = serializer.validated_data['image']
+
+        if position is None:
+            current_max = (
+                DataroomBannerImage.objects.filter(dataroom=dataroom)
+                .order_by('-position').values_list('position', flat=True).first()
+            )
+            position = (current_max + 1) if current_max is not None else 0
+
+        banner = DataroomBannerImage(
+            dataroom=dataroom, position=position, caption=caption, image=image
+        )
+        banner.save()
+        return Response(
+            DataroomBannerImageSerializer(banner).data, status=status.HTTP_201_CREATED
+        )
+
+    @action(detail=True, methods=['patch', 'delete'], url_path='banner-images/(?P<banner_id>[^/.]+)')
+    def banner_image_detail(self, request, pk=None, banner_id=None):
+        dataroom = self.get_object()
+        if not is_dataroom_owner_or_admin(request.user, dataroom):
+            raise PermissionDenied(
+                "Only the dataroom owner or an organization admin can modify branding."
+            )
+        banner = get_object_or_404(DataroomBannerImage, pk=banner_id, dataroom=dataroom)
+        if request.method == 'DELETE':
+            if banner.image:
+                banner.image.delete(save=False)
+            banner.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        serializer = DataroomBannerImageCreateSerializer(
+            data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        for field in ('caption', 'position'):
+            if field in serializer.validated_data:
+                setattr(banner, field, serializer.validated_data[field])
+        if 'image' in serializer.validated_data:
+            if banner.image:
+                banner.image.delete(save=False)
+            banner.image = serializer.validated_data['image']
+        banner.save()
+        return Response(DataroomBannerImageSerializer(banner).data, status=status.HTTP_200_OK)
 
     def _scope_has_item_order_rows(self, dataroom, parent_folder):
         return DataroomItemOrder.objects.filter(dataroom=dataroom, parent_folder=parent_folder).exists()

@@ -560,7 +560,7 @@ export const addDataroomCollaborators = (dataroomId, data) => api.post(`/dataroo
 export const removeDataroomCollaborator = (dataroomId, userId) => api.delete(`/datarooms/${dataroomId}/collaborators/${userId}/`);
 export const transferDataroomOwnership = (dataroomId, newOwnerId) => api.post(`/datarooms/${dataroomId}/transfer-ownership/`, { new_owner_id: newOwnerId });
 export const getEligibleCollaborators = (dataroomId, query = '') => api.get(`/datarooms/${dataroomId}/eligible-collaborators/`, { params: query ? { q: query } : {} });
-export const updateDataroomBranding = (id, { name, bannerFile, removeBanner = false, brandPrimaryColor, brandSecondaryColor, brandAccentColor, showFileIndex, enableQna, storageQuotaMb }) => {
+export const updateDataroomBranding = (id, { name, bannerFile, removeBanner = false, logoFile, removeLogo = false, brandPrimaryColor, brandSecondaryColor, brandAccentColor, showFileIndex, enableQna, enableTelemetryAccess, bannerMode, logoMode, storageQuotaMb }) => {
   const formData = new FormData();
   if (name !== undefined) {
     formData.append('name', name);
@@ -568,7 +568,11 @@ export const updateDataroomBranding = (id, { name, bannerFile, removeBanner = fa
   if (bannerFile) {
     formData.append('branding_banner', bannerFile);
   }
+  if (logoFile) {
+    formData.append('brand_logo_override', logoFile);
+  }
   formData.append('remove_branding_banner', removeBanner ? 'true' : 'false');
+  formData.append('remove_brand_logo', removeLogo ? 'true' : 'false');
   if (brandPrimaryColor !== undefined) {
     formData.append('brand_primary_color', brandPrimaryColor || '');
   }
@@ -584,6 +588,15 @@ export const updateDataroomBranding = (id, { name, bannerFile, removeBanner = fa
   if (enableQna !== undefined) {
     formData.append('enable_qna', enableQna ? 'true' : 'false');
   }
+  if (enableTelemetryAccess !== undefined) {
+    formData.append('enable_telemetry_access', enableTelemetryAccess ? 'true' : 'false');
+  }
+  if (bannerMode !== undefined) {
+    formData.append('banner_mode', bannerMode);
+  }
+  if (logoMode !== undefined) {
+    formData.append('logo_mode', logoMode);
+  }
   if (storageQuotaMb !== undefined) {
     formData.append('storage_quota_mb', storageQuotaMb);
   }
@@ -592,6 +605,26 @@ export const updateDataroomBranding = (id, { name, bannerFile, removeBanner = fa
   });
 };
 export const deleteDataroom = (id) => api.delete(`/datarooms/${id}/`);
+export const getDataroomBannerImages = (dataroomId) => api.get(`/datarooms/${dataroomId}/banner-images/`);
+export const uploadDataroomBannerImage = (dataroomId, file, caption = '') => {
+  const formData = new FormData();
+  formData.append('image', file);
+  if (caption) formData.append('caption', caption);
+  return api.post(`/datarooms/${dataroomId}/banner-images/`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+export const updateDataroomBannerImage = (dataroomId, bannerId, data) => {
+  const formData = new FormData();
+  if (data.caption !== undefined) formData.append('caption', data.caption);
+  if (data.position !== undefined) formData.append('position', data.position);
+  if (data.image) formData.append('image', data.image);
+  return api.patch(`/datarooms/${dataroomId}/banner-images/${bannerId}/`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+export const deleteDataroomBannerImage = (dataroomId, bannerId) =>
+  api.delete(`/datarooms/${dataroomId}/banner-images/${bannerId}/`);
 export const upgradeDataroomStorage = (id) => api.post(`/datarooms/${id}/upgrade-storage/`);
 export const addContentToDataroom = (id, data) => api.post(`/datarooms/${id}/add-content/`, data);
 export const removeContentFromDataroom = (id, data) => api.post(`/datarooms/${id}/remove-content/`, data);
