@@ -7,7 +7,7 @@ import { ShareIcon, Star, ArrowLeft, ChevronDown, FolderUp, Plus, Loader2, Alert
 import { toast } from 'sonner';
 import { formatBytes } from '../lib/formatters';
 import { isDataroomOwner, isDataroomCollaborator } from '../utils/formatters';
-import { getDataroom, addContentToDataroom, createDataroomFolder, moveDataroomContent, getDataroomFolderContents, getShareLinksForDataroom, deleteShareLink, getDataroomViewSessions, getDataroomStats, removeContentFromDataroom, updateDataroomFolder, updateDataroomDocument, updateDataroomBranding, reorderDataroomItems, deleteDataroom, ensureDataroomFolderPaths, uploadDataroomDocument, upgradeDataroomStorage, getDataroomBannerImages, uploadDataroomBannerImage, deleteDataroomBannerImage, uploadTelemetryExcel } from '../services/api';
+import { getDataroom, addContentToDataroom, createDataroomFolder, moveDataroomContent, getDataroomFolderContents, getShareLinksForDataroom, deleteShareLink, getDataroomViewSessions, getDataroomStats, removeContentFromDataroom, updateDataroomFolder, updateDataroomDocument, updateDataroomBranding, reorderDataroomItems, deleteDataroom, ensureDataroomFolderPaths, uploadDataroomDocument, upgradeDataroomStorage, getDataroomBannerImages, uploadDataroomBannerImage, deleteDataroomBannerImage } from '../services/api';
 import { useBreadcrumb } from '../components/layout/BreadcrumbProvider';
 import { useUpload } from '../contexts/UploadProvider';
 import { useUser } from '../contexts/UserProvider';
@@ -113,8 +113,6 @@ export function DataroomPage() {
   const [showFileIndex, setShowFileIndex] = useState(true);
   const [enableQna, setEnableQna] = useState(true);
   const [isSavingEnableQna, setIsSavingEnableQna] = useState(false);
-  const [enableTelemetryAccess, setEnableTelemetryAccess] = useState(false);
-  const [isSavingTelemetryAccess, setIsSavingTelemetryAccess] = useState(false);
   const [bannerMode, setBannerMode] = useState('single');
   const [logoMode, setLogoMode] = useState('org');
   const [isSavingBannerMode, setIsSavingBannerMode] = useState(false);
@@ -122,9 +120,6 @@ export function DataroomPage() {
   const [galleryImages, setGalleryImages] = useState([]);
   const [isUploadingGalleryImage, setIsUploadingGalleryImage] = useState(false);
   const galleryFileInputRef = useRef(null);
-  const [isIngestingTelemetry, setIsIngestingTelemetry] = useState(false);
-  const [telemetryIngestSummary, setTelemetryIngestSummary] = useState(null);
-  const telemetryFileInputRef = useRef(null);
   const [storageQuotaMb, setStorageQuotaMb] = useState(0);
   const [isSavingStorageQuota, setIsSavingStorageQuota] = useState(false);
   const [isUpgradingStorage, setIsUpgradingStorage] = useState(false);
@@ -437,7 +432,6 @@ export function DataroomPage() {
     setBrandingPreviewUrl(null);
     setShowFileIndex(Boolean(dataroom.show_file_index));
     setEnableQna(dataroom.enable_qna !== false);
-    setEnableTelemetryAccess(Boolean(dataroom.enable_telemetry_access));
     setBannerMode(dataroom.banner_mode || 'single');
     setLogoMode(dataroom.logo_mode || 'org');
     setGalleryImages(dataroom.banner_images || []);
@@ -722,25 +716,6 @@ export function DataroomPage() {
     }
   };
 
-  const handleToggleEnableTelemetryAccess = async (checked) => {
-    if (isSavingTelemetryAccess) return;
-    const previous = enableTelemetryAccess;
-    setEnableTelemetryAccess(checked);
-    setIsSavingTelemetryAccess(true);
-    try {
-      const response = await updateDataroomBranding(dataroomId, {
-        enableTelemetryAccess: checked,
-      });
-      setDataroom(response.data);
-      toast.success(t('datarooms.telemetryAccessUpdated'));
-    } catch (error) {
-      setEnableTelemetryAccess(previous);
-      // Error toast handled by interceptor
-    } finally {
-      setIsSavingTelemetryAccess(false);
-    }
-  };
-
   const handleChangeBannerMode = async (mode) => {
     if (isSavingBannerMode || mode === bannerMode) return;
     const previous = bannerMode;
@@ -803,28 +778,6 @@ export function DataroomPage() {
       toast.success(t('datarooms.galleryImageRemoved'));
     } catch (error) {
       // Error toast handled by interceptor
-    }
-  };
-
-  const handleTelemetryFileChange = async (e) => {
-    const file = e.target.files?.[0] || null;
-    e.target.value = '';
-    if (!file) return;
-    setIsIngestingTelemetry(true);
-    setTelemetryIngestSummary(null);
-    try {
-      const res = await uploadTelemetryExcel(dataroomId, file, { sourceName: file.name });
-      setTelemetryIngestSummary(res.data);
-      toast.success(
-        t('datarooms.telemetryIngested', {
-          defaultValue: 'Telemetry ingested: {{count}} hourly rows',
-          count: res.data.hourly_rows,
-        })
-      );
-    } catch (error) {
-      // Error toast handled by interceptor
-    } finally {
-      setIsIngestingTelemetry(false);
     }
   };
 
@@ -1715,62 +1668,6 @@ export function DataroomPage() {
                   aria-label={t('datarooms.enableQna')}
                 />
               </div>
-              <div className="mt-3 flex items-center justify-between rounded border border-gray-200 p-3 dark:border-gray-700">
-                <div>
-                  <p className="text-sm font-medium">{t('datarooms.enableTelemetryAccess', { defaultValue: 'Access to Telemetry' })}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('datarooms.enableTelemetryAccessHelp', { defaultValue: 'Show a View telemetry button on the share page, opening the live telemetry dashboard.' })}</p>
-                </div>
-                <Switch
-                  checked={enableTelemetryAccess}
-                  onCheckedChange={handleToggleEnableTelemetryAccess}
-                  disabled={isSavingTelemetryAccess}
-                  aria-label={t('datarooms.enableTelemetryAccess', { defaultValue: 'Access to Telemetry' })}
-                />
-              </div>
-              {canManage && (
-                <div className="mt-3 rounded border border-gray-200 p-3 dark:border-gray-700">
-                  <p className="text-sm font-medium">
-                    {t('datarooms.telemetryData', { defaultValue: 'Telemetry data' })}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {t('datarooms.telemetryDataHelp', {
-                      defaultValue: 'Upload the Bluelayer SIM Excel export. The Raw Telemetry sheet is parsed into hourly rows.',
-                    })}
-                  </p>
-                  <input
-                    ref={telemetryFileInputRef}
-                    type="file"
-                    accept=".xlsx,.xlsm"
-                    className="hidden"
-                    onChange={handleTelemetryFileChange}
-                  />
-                  <div className="mt-2 flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => telemetryFileInputRef.current?.click()}
-                      disabled={isIngestingTelemetry}
-                    >
-                      {isIngestingTelemetry ? (
-                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      ) : null}
-                      {isIngestingTelemetry
-                        ? t('common.uploading', { defaultValue: 'Uploading…' })
-                        : t('datarooms.uploadTelemetryExcel', { defaultValue: 'Upload Excel' })}
-                    </Button>
-                    {telemetryIngestSummary && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {t('datarooms.telemetryIngestSummary', {
-                          defaultValue: '{{raw}} raw rows → {{hourly}} hourly rows',
-                          raw: telemetryIngestSummary.raw_rows,
-                          hourly: telemetryIngestSummary.hourly_rows,
-                        })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
 
             {canManage && (
