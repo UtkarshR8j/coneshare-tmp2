@@ -988,22 +988,6 @@ export function DataroomViewer({ data, slug, viewId }) {
               <h1 className="m-0 truncate text-base font-semibold sm:text-lg" style={{ textShadow: '0 1px 6px rgba(0,0,0,.35)' }}>
                 {scopeData.name}
               </h1>
-              <div className="flex shrink-0 items-center gap-3">
-                {brandWebsiteUrl ? (
-                  <a
-                    href={brandWebsiteUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="pointer-events-auto flex h-24 w-auto items-center justify-center rounded-xl bg-white/80 p-2 shadow-lg backdrop-blur-sm aspect-[114/44]"
-                  >
-                    <img src={brandLogoUrl} alt={`${brandName} logo`} className="block h-full w-full object-contain" />
-                  </a>
-                ) : (
-                  <a href="/" className="pointer-events-auto flex h-24 w-auto items-center justify-center rounded-xl bg-white/80 p-2 shadow-lg backdrop-blur-sm aspect-[114/44]">
-                    <img src={brandLogoUrl} alt={`${brandName} logo`} className="block h-full w-full object-contain" />
-                  </a>
-                )}
-              </div>
             </header>
 
             <div className="mx-auto mt-auto flex w-full max-w-[920px] flex-col gap-4 px-[clamp(14px,3vw,28px)] pb-7 pt-5">
