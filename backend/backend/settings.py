@@ -220,6 +220,7 @@ INSTALLED_APPS = [
     'cloudfiles',
     'filerequests',
     'automations',
+    'telemetry',
 ]
 
 MIDDLEWARE = [
