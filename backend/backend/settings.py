@@ -105,6 +105,24 @@ DATABASES = {
     )
 }
 
+# SQLite concurrency: WAL journal + busy timeout. Without these, concurrent
+# writes (page-view tracking vs visit tracking vs celery) raise
+# 'database is locked' and RecordPageView 500s.
+if DATABASES['default'].get('ENGINE') == 'django.db.backends.sqlite3':
+    DATABASES['default'].setdefault('OPTIONS', {})
+    _sqlite_opts = DATABASES['default']['OPTIONS']
+    # Busy timeout in seconds: wait instead of raising 'database is locked'.
+    _sqlite_opts.setdefault('timeout', 30)
+    # BEGIN IMMEDIATE: take the write lock at transaction start. Without it a
+    # deferred read->write upgrade hits SQLITE_BUSY instantly (the 30s timeout
+    # does not apply to that case) and concurrent tracking writes still 500.
+    _sqlite_opts.setdefault('transaction_mode', 'IMMEDIATE')
+    # WAL journal + NORMAL synchronous, re-applied on every connect.
+    _sqlite_opts.setdefault(
+        'init_command',
+        'PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL',
+    )
+
 # Log Level Configuration
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
