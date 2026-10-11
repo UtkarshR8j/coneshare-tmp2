@@ -6,7 +6,7 @@ const BrandingContext = createContext(null);
 
 export function BrandingProvider({ children }) {
   const [branding, setBranding] = useState({
-    brandName: "Kalinga",
+    brandName: "Longstraw Carbon",
     brandLogoUrl: "/logo.svg",
     brandWebsiteUrl: "",
     termsUrl: "https://www.coneshare.com/terms",
@@ -22,7 +22,7 @@ export function BrandingProvider({ children }) {
       const privacy = data?.privacy_policy_url;
 
       setBranding({
-        brandName: data?.brand_name || "Kalinga",
+        brandName: data?.brand_name || "Longstraw Carbon",
         brandLogoUrl: data?.brand_logo_url || "/logo.svg",
         brandWebsiteUrl: (websiteUrl && isSafeUrl(websiteUrl)) ? websiteUrl : "",
         termsUrl: (terms && isSafeUrl(terms)) ? terms : "https://www.coneshare.com/terms",
@@ -63,7 +63,7 @@ export function useBranding() {
   const context = useContext(BrandingContext);
   if (context === null) {
     return {
-      brandName: "Kalinga",
+      brandName: "Longstraw Carbon",
       brandLogoUrl: "/logo.svg",
       brandWebsiteUrl: "",
       termsUrl: "https://www.coneshare.com/terms",

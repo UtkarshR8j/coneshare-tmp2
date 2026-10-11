@@ -49,7 +49,7 @@ const GALLERY_ITEMS = [
 ];
 
 // Derive the hero gallery images from the dataroom's stored gallery when the
-// banner mode is 'gallery'; falls back to the default Kalinga set otherwise.
+// banner mode is 'gallery'; falls back to the default Longstraw Carbon set otherwise.
 function buildHeroGalleryItems(scopeData) {
   const mode = scopeData?.banner_mode || 'single';
   const stored = Array.isArray(scopeData?.banner_images)

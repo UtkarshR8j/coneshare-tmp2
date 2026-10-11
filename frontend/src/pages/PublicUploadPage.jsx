@@ -482,7 +482,7 @@ export function PublicUploadPage() {
               rel="noopener noreferrer"
               className="hover:text-gray-600 transition-colors"
             >
-              {brandWebsiteUrl ? `About ${brandName}` : "About Kalinga"}
+              {brandWebsiteUrl ? `About ${brandName}` : "About Longstraw Carbon"}
             </a>
             <span className="text-gray-300">&bull;</span>
             <a

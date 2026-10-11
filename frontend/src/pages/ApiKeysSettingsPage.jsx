@@ -139,7 +139,7 @@ export default function ApiKeysSettingsPage() {
           >
             <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
               <Sparkles className="h-5 w-5 text-primary" />
-              <span>{t('settings.mcpSetupGuideTitle', 'How to connect your AI agent to Kalinga MCP')}</span>
+              <span>{t('settings.mcpSetupGuideTitle', 'How to connect your AI agent to Longstraw Carbon MCP')}</span>
             </div>
             {isGuideOpen ? <ChevronUp className="h-5 w-5 text-gray-500" /> : <ChevronDown className="h-5 w-5 text-gray-500" />}
           </button>
