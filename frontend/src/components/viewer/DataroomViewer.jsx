@@ -996,7 +996,9 @@ export function DataroomViewer({ data, slug, viewId }) {
 
       {scopeData.banner_mode !== 'none' && scopeData.branding_banner && !showDocumentViewer && (
         <section className="flex-shrink-0 border-b bg-white">
-          <img src={scopeData.branding_banner} alt={`${scopeData.name} banner`} className={`w-full object-cover${isRootHeroView ? ' max-h-48' : ' h-40 md:h-56'}`} />
+          <div className="mx-auto flex w-full items-center justify-center">
+            <img src={scopeData.branding_banner} alt={`${scopeData.name} banner`} className={`w-full object-contain${isRootHeroView ? ' max-h-48' : ' h-40 md:h-56'}`} />
+          </div>
         </section>
       )}
 
