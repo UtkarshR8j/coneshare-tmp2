@@ -3,7 +3,7 @@ import { Bot, File, Home, LayoutGrid, UploadCloud, Trash2 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
-import { useSidebar } from "./SidebarProvider";
+import DataroomFolderTree from "./DataroomFolderTree";
 
 export const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -28,7 +28,6 @@ export function useNavItems() {
 
 function SidebarContent() {
   const { pathname } = useLocation();
-  const { isCollapsed } = useSidebar();
   const navItems = useNavItems();
 
   return (
@@ -36,22 +35,24 @@ function SidebarContent() {
       {navItems.map((item) => (
         <React.Fragment key={item.href}>
           {item.hasDivider && (
-            <hr className="my-1.5 border-t border-gray-200 dark:border-gray-800" />
+            <hr className="my-1.5 border-t border-border" />
           )}
           <Link
             to={item.href}
             className={cn(
-              "flex items-center gap-3 rounded-lg py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50",
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-foreground",
               (item.href === "/" ? pathname === item.href : pathname.startsWith(item.href)) &&
-                "bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-50",
-              isCollapsed ? "justify-center px-0 h-10 w-10" : "px-3"
+                "bg-secondary text-foreground"
             )}
           >
-            <item.icon className="h-5 w-5" />
-            <span className={cn(isCollapsed && "hidden")}>{item.label}</span>
+            <item.icon className="h-[18px] w-[18px]" />
+            <span>{item.label}</span>
           </Link>
         </React.Fragment>
       ))}
+      {/* Folder tree for the dataroom currently being viewed. Renders nothing outside
+          /datarooms/:id, since a dataroom is 1:1 with its recipient. */}
+      <DataroomFolderTree />
     </nav>
   );
 }

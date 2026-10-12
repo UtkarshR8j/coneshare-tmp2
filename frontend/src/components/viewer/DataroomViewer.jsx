@@ -42,27 +42,19 @@ import { DATAROOM_VIEWER_PAGE_SIZE } from '../../constants/pagination';
 import AccordionGallery from './AccordionGallery';
 import './AccordionGallery.css';
 
-const GALLERY_ITEMS = [
-  { image: 'https://d2p5uoj6rqd2yg.cloudfront.net/assets/gallery/kalinga-01.jpg' },
-  { image: 'https://d2p5uoj6rqd2yg.cloudfront.net/assets/gallery/kalinga-02.jpg' },
-  { image: 'https://d2p5uoj6rqd2yg.cloudfront.net/assets/gallery/kalinga-03.jpg' },
-  { image: 'https://d2p5uoj6rqd2yg.cloudfront.net/assets/gallery/kalinga-04.jpg' },
-];
-
-// Derive the hero gallery images from the dataroom's stored gallery when the
-// banner mode is 'gallery'; falls back to the default Kalinga set otherwise.
+// Hero gallery images come ONLY from the dataroom's own stored gallery.
+// There is deliberately no fallback set here: an earlier version fell back to
+// a hardcoded demo gallery, which painted a banner onto every dataroom whose
+// owner had not configured one.
 function buildHeroGalleryItems(scopeData) {
   const mode = scopeData?.banner_mode || 'single';
+  if (mode !== 'gallery') {
+    return [];
+  }
   const stored = Array.isArray(scopeData?.banner_images)
     ? scopeData.banner_images.filter((img) => img && img.url)
     : [];
-  if (mode === 'none') {
-    return [];
-  }
-  if (mode === 'gallery' && stored.length > 0) {
-    return stored.map((img) => ({ image: img.url, caption: img.caption }));
-  }
-  return GALLERY_ITEMS;
+  return stored.map((img) => ({ image: img.url, caption: img.caption }));
 }
 import { useBranding } from '../../contexts/BrandingProvider';
 import { LanguagePicker } from '../common/LanguagePicker';
@@ -547,7 +539,10 @@ export function DataroomViewer({ data, slug, viewId, onOpenTelemetry }) {
   }, [scopeData]);
 
   useEffect(() => {
-    if (!selectedDocumentId || rootItems.length > 0 || isRootLoading) return;
+    // Root items feed the sidebar tree, so they must load on the share landing
+    // view as well. Previously this bailed unless a document was already open,
+    // which meant the tree could never render anything before a click.
+    if (rootItems.length > 0 || isRootLoading) return;
     const fetchRootItems = async () => {
       setIsRootLoading(true);
       try {
@@ -560,7 +555,7 @@ export function DataroomViewer({ data, slug, viewId, onOpenTelemetry }) {
       }
     };
     fetchRootItems();
-  }, [slug, selectedDocumentId, rootItems.length, isRootLoading]);
+  }, [slug, rootItems.length, isRootLoading]);
 
   useEffect(() => {
     const currentParentId = scopeData?.current_parent_id ? String(scopeData.current_parent_id) : null;
@@ -1274,7 +1269,21 @@ export function DataroomViewer({ data, slug, viewId, onOpenTelemetry }) {
           )}
         </main>
       ) : (
-        <main className="min-h-screen border-t">
+        <main className="flex min-h-screen border-t">
+          <DataroomFileTree
+            slug={slug}
+            viewId={viewId}
+            items={rootItems}
+            selectedDocumentId={selectedDocumentId}
+            onItemClick={handleItemClick}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={handleToggleSidebarCollapse}
+            currentFolderName={breadcrumbs[breadcrumbs.length - 1]?.name || scopeData.name}
+            activePathFolderIds={activePathFolderIds}
+          />
+          {/* data-testid scopes test queries to the file list; the sidebar tree
+              renders the same folder/document names, so unscoped queries are ambiguous. */}
+          <div className="flex min-w-0 flex-1 flex-col" data-testid="share-file-list">
           <div
             className="flex w-full items-center border-b px-3 py-2 text-xs font-medium sm:px-4"
             style={{
@@ -1334,16 +1343,13 @@ export function DataroomViewer({ data, slug, viewId, onOpenTelemetry }) {
           )}
           {isRootHeroView && (
             <footer className="kalinga-footer flex flex-wrap items-center justify-between gap-3 px-3 py-[18px] text-xs sm:px-4" style={KALINGA_FOOTER_STYLE}>
-              <span>
-                {t('viewer.poweredBy')}{' '}
-                <a href="https://github.com/coneshare/coneshare" target="_blank" rel="noopener noreferrer" className="font-medium" style={{ color: '#1b1f1c' }}>Coneshare</a>
-              </span>
               <span className="inline-flex items-center gap-1.5" style={{ color: '#5d625e' }}>
                 {t('settings.language', { defaultValue: 'Language' })}
                 <LanguagePicker />
               </span>
             </footer>
           )}
+          </div>
         </main>
       )}
 

@@ -1,32 +1,20 @@
-import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useTranslation } from "react-i18next";
-import { useSidebar } from "./SidebarProvider";
-import { cn } from "../../lib/utils";
-import { Button } from "../ui/Button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../ui/Tooltip";
-
 import { useBranding } from "../../contexts/BrandingProvider";
 
+// No collapse toggle: the tree panel is fixed-width by design, so a
+// chevron would be a control that does nothing.
 function SidebarHeader() {
-  const { t } = useTranslation();
-  const { isCollapsed, toggleSidebar } = useSidebar();
   const { brandName, brandLogoUrl, brandWebsiteUrl } = useBranding();
 
   const logoContent = (
     <>
-      <img src={brandLogoUrl} alt={`${brandName} logo`} className="h-6 w-6 object-contain" />
-      <span className={cn(isCollapsed && "hidden")}>{brandName}</span>
+      <img src={brandLogoUrl} alt={`${brandName} logo`} className="h-7 w-7 object-contain" />
+      <span>{brandName}</span>
     </>
   );
 
   return (
-    <div className="flex h-14 items-center border-b px-4">
+    <div className="flex h-16 items-center border-b border-border px-5">
       {brandWebsiteUrl ? (
         <a
           href={brandWebsiteUrl}
@@ -46,28 +34,6 @@ function SidebarHeader() {
           {logoContent}
         </Link>
       )}
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleSidebar}
-              className="h-8 w-8"
-            >
-              {isCollapsed ? (
-                <ChevronsRight className="h-5 w-5" />
-              ) : (
-                <ChevronsLeft className="h-5 w-5" />
-              )}
-              <span className="sr-only">{t('nav.toggleSidebar')}</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>{t('nav.pressToToggleSidebar')}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
     </div>
   );
 }
