@@ -1314,6 +1314,16 @@ export function DataroomViewer({ data, slug, viewId }) {
           )}
           {isRootHeroView && (
             <footer className="kalinga-footer flex flex-wrap items-center justify-between gap-3 px-3 py-[18px] text-xs sm:px-4" style={KALINGA_FOOTER_STYLE}>
+              {brandLogoUrl ? (
+                <a
+                  href={brandWebsiteUrl || '/'}
+                  target={brandWebsiteUrl ? '_blank' : undefined}
+                  rel={brandWebsiteUrl ? 'noopener noreferrer' : undefined}
+                  className="inline-flex shrink-0 items-center"
+                >
+                  <img src={brandLogoUrl} alt={`${brandName} logo`} className="h-8 w-auto object-contain" />
+                </a>
+              ) : null}
               <span className="inline-flex items-center gap-1.5" style={{ color: '#5d625e' }}>
                 {t('settings.language', { defaultValue: 'Language' })}
                 <LanguagePicker />
