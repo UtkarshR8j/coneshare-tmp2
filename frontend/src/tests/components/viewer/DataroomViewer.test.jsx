@@ -1,10 +1,16 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { DataroomViewer } from '../../../components/viewer/DataroomViewer';
 import * as api from '../../../services/api';
 import '../../../i18n';
 import { DATAROOM_VIEWER_PAGE_SIZE } from '../../../constants/pagination';
+
+// The share viewer now renders a persistent sidebar tree alongside the file
+// list, and both surface the same names/titles. Scope these helpers to the
+// list so queries stay unambiguous.
+const inList = (name) => within(screen.getByTestId('share-file-list')).getByTitle(name);
+const inListText = (text) => within(screen.getByTestId('share-file-list')).getByText(text);
 
 vi.mock('../../../services/api', () => ({
   getShareLinkViewData: vi.fn(),
@@ -61,8 +67,8 @@ describe('DataroomViewer', () => {
   it('renders root items correctly', () => {
     renderComponent();
 
-    expect(screen.getByText('Root Document')).toBeInTheDocument();
-    expect(screen.getByText('Sub Folder A')).toBeInTheDocument();
+    expect(inListText('Root Document')).toBeInTheDocument();
+    expect(inListText('Sub Folder A')).toBeInTheDocument();
     expect(screen.queryByText('Sub Folder Document')).not.toBeInTheDocument();
   });
 
@@ -100,7 +106,7 @@ describe('DataroomViewer', () => {
     expect(screen.queryByText('Sub Folder Document')).not.toBeInTheDocument();
 
     // Click on the sub-folder
-    const subFolderButton = screen.getByTitle('Sub Folder A');
+    const subFolderButton = inList('Sub Folder A');
     fireEvent.click(subFolderButton);
 
     // Now, the document inside the sub-folder should be visible
@@ -114,7 +120,7 @@ describe('DataroomViewer', () => {
     });
 
     // The root document should no longer be visible
-    expect(screen.queryByText('Root Document')).not.toBeInTheDocument();
+    expect(inListText('Root Document')).not.toBeInTheDocument();
   });
 
   it('sends only one scoped request when navigating into a folder', async () => {
@@ -131,7 +137,7 @@ describe('DataroomViewer', () => {
 
     renderComponent();
 
-    fireEvent.click(screen.getByTitle('Sub Folder A'));
+    fireEvent.click(inList('Sub Folder A'));
 
     await waitFor(() => {
       expect(screen.getByText('Sub Folder Document')).toBeInTheDocument();
@@ -164,19 +170,19 @@ describe('DataroomViewer', () => {
     renderComponent();
 
     // Navigate into the sub-folder
-    const subFolderButton = screen.getByTitle('Sub Folder A');
+    const subFolderButton = inList('Sub Folder A');
     fireEvent.click(subFolderButton);
     await waitFor(() => {
       expect(screen.getByText('Sub Folder Document')).toBeInTheDocument();
     });
 
     // Click the "Root" breadcrumb
-    fireEvent.click(screen.getByRole('button', { name: /root/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /root/i }).find((b) => !b.closest('aside')));
 
     // Should be back at the root, seeing the root items
     await waitFor(() => {
-      expect(screen.getByText('Root Document')).toBeInTheDocument();
-      expect(screen.getByText('Sub Folder A')).toBeInTheDocument();
+      expect(inListText('Root Document')).toBeInTheDocument();
+      expect(inListText('Sub Folder A')).toBeInTheDocument();
       expect(screen.queryByText('Sub Folder Document')).not.toBeInTheDocument();
     });
     expect(api.getShareLinkViewData).toHaveBeenLastCalledWith('test-slug', {
@@ -633,7 +639,7 @@ describe('DataroomViewer', () => {
     await screen.findByText('Sub Folder A');
 
     // Navigate back to Document 1 (which is Root Document under mockDataroomData items list with id 'doc1')
-    fireEvent.click(screen.getByTitle('Root Document'));
+    fireEvent.click(inList('Root Document'));
 
     await waitFor(() => {
       expect(api.recordDataroomVisit).toHaveBeenCalledTimes(1);
@@ -893,10 +899,10 @@ describe('DataroomViewer', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByTitle('Sub Folder A'));
+    fireEvent.click(inList('Sub Folder A'));
     await screen.findByTitle('Sub Folder Document');
 
-    fireEvent.click(screen.getByTitle('Sub Folder Document'));
+    fireEvent.click(inList('Sub Folder Document'));
 
     await waitFor(() => {
       expect(api.getShareLinkViewData).toHaveBeenCalledWith('test-slug', expect.objectContaining({
@@ -919,9 +925,9 @@ describe('DataroomViewer', () => {
     );
 
     // Enter the subfolder and open the document once.
-    fireEvent.click(screen.getByTitle('Sub Folder A'));
+    fireEvent.click(inList('Sub Folder A'));
     await screen.findByTitle('Sub Folder Document');
-    fireEvent.click(screen.getByTitle('Sub Folder Document'));
+    fireEvent.click(inList('Sub Folder Document'));
     await waitFor(() => {
       expect(docFetchCount('doc2')).toBe(1);
     });
@@ -929,11 +935,11 @@ describe('DataroomViewer', () => {
     // Navigate back out to the root list, then into the subfolder again.
     fireEvent.click(screen.getByRole('button', { name: /^root$/i }));
     await screen.findByTitle('Sub Folder A');
-    fireEvent.click(screen.getByTitle('Sub Folder A'));
+    fireEvent.click(inList('Sub Folder A'));
     await screen.findByTitle('Sub Folder Document');
 
     // Re-open the same document.
-    fireEvent.click(screen.getByTitle('Sub Folder Document'));
+    fireEvent.click(inList('Sub Folder Document'));
 
     await waitFor(() => {
       expect(docFetchCount('doc2')).toBe(2);
@@ -982,9 +988,9 @@ describe('DataroomViewer', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByTitle('Sub Folder A'));
+    fireEvent.click(inList('Sub Folder A'));
     await screen.findByTitle('Sub Folder Document');
-    fireEvent.click(screen.getByTitle('Sub Folder Document'));
+    fireEvent.click(inList('Sub Folder Document'));
 
     await screen.findByText('No document view data available.');
 

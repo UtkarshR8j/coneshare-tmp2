@@ -38,7 +38,7 @@ export function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8 dark:bg-gray-900">
+    <div className="dark flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8 dark:bg-gray-900">
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center">
           {brandLogoUrl ? (
@@ -167,9 +167,6 @@ export function SignupPage() {
           </a>
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-gray-400/80">
-          <span>
-            {t('viewer.poweredBy')}{' '}<a href="https://github.com/coneshare/coneshare" target="_blank" rel="noopener noreferrer" className="text-gray-900 hover:text-gray-700 dark:text-gray-100 dark:hover:text-gray-300 font-semibold underline transition-colors">Coneshare</a>
-          </span>
           {APP_DISPLAY_VERSION && (
             <>
               <span className="text-gray-300 select-none">&bull;</span>

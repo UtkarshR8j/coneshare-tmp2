@@ -527,8 +527,6 @@ export function ShareLinkViewerPage() {
             <span>{brandName}</span>
           </a>
           <div className="pl-1 text-[9px] text-gray-400/80 bg-white/40 px-1 rounded backdrop-blur-xs select-none flex items-center gap-1.5">
-            <span>{t('viewer.poweredBy')}{' '}<a href="https://github.com/coneshare/coneshare" target="_blank" rel="noopener noreferrer" className="text-gray-900 hover:text-gray-700 hover:underline dark:text-gray-100 dark:hover:text-gray-300 transition-colors font-medium">Coneshare</a></span>
-            <span className="text-gray-300 select-none">&bull;</span>
             <LanguagePicker />
           </div>
         </div>
@@ -595,8 +593,6 @@ export function ShareLinkViewerPage() {
             <span>{brandName}</span>
           </a>
           <div className="pl-1 text-[9px] text-gray-400/80 bg-white/40 px-1 rounded backdrop-blur-xs select-none flex items-center gap-1.5">
-            <span>{t('viewer.poweredBy')}{' '}<a href="https://github.com/coneshare/coneshare" target="_blank" rel="noopener noreferrer" className="text-gray-900 hover:text-gray-700 hover:underline dark:text-gray-100 dark:hover:text-gray-300 transition-colors font-medium">Coneshare</a></span>
-            <span className="text-gray-300 select-none">&bull;</span>
             <LanguagePicker />
           </div>
         </div>
@@ -652,8 +648,6 @@ export function ShareLinkViewerPage() {
           <span>{brandName}</span>
         </a>
         <div className="pl-1 text-[9px] text-gray-400/80 bg-white/40 px-1 rounded backdrop-blur-xs select-none flex items-center gap-1.5">
-          <span>{t('viewer.poweredBy')}{' '}<a href="https://github.com/coneshare/coneshare" target="_blank" rel="noopener noreferrer" className="text-gray-900 hover:text-gray-700 hover:underline dark:text-gray-100 dark:hover:text-gray-300 transition-colors font-medium">Coneshare</a></span>
-          <span className="text-gray-300 select-none">&bull;</span>
           <LanguagePicker />
         </div>
       </div>
