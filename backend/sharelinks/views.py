@@ -549,7 +549,20 @@ class ShareLinkViewSet(viewsets.ModelViewSet):
         else:
             if instance.created_by_id != user.id and not is_admin:
                 raise PermissionDenied("You do not have permission to update this share link.")
+
+        # Cascade link-level permission toggles to the per-item dataroom rows.
+        # For dataroom links, the viewer/download endpoints read
+        # ShareLinkDataroomSetting rows (seeded once at link creation), so
+        # without this the link-level allow_download/enable_watermark toggles
+        # are dead switches.
+        cascade_fields = {
+            field: serializer.validated_data[field]
+            for field in ('allow_download', 'enable_watermark')
+            if field in serializer.validated_data
+        }
         serializer.save()
+        if instance.dataroom_id and cascade_fields:
+            ShareLinkDataroomSetting.objects.filter(share_link=instance).update(**cascade_fields)
 
     def perform_destroy(self, instance):
         user = self.request.user
