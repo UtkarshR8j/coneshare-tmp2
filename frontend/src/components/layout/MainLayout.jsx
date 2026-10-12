@@ -16,7 +16,7 @@ function Layout() {
   // viewer (/view/:slug) is a branded light surface with its own hardcoded
   // palette, and a global dark class bled into it and destroyed its contrast.
   return (
-    <div className="dark grid h-screen w-full bg-background text-foreground md:grid-cols-[300px_1fr]">
+    <div className="grid h-screen w-full bg-background text-foreground md:grid-cols-[300px_1fr]">
       <Sidebar />
       <div className="grid grid-rows-[auto_1fr] overflow-hidden">
         <Header />
