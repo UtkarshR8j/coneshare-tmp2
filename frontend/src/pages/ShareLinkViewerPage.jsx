@@ -32,10 +32,9 @@ import { LanguagePicker } from '../components/common/LanguagePicker';
 import { useTranslation } from 'react-i18next';
 
 const PREVIEW_POLL_INTERVAL_MS = 3000;
-// Target behind the View telemetry button. Empty on purpose for now: the
-// button renders on every opted-in dataroom and does nothing until Utkarsh
-// supplies the link.
-const TELEMETRY_LINK = '';
+// Target behind the View telemetry button: the dMRV reporting dashboard that
+// lives on the analytics host.
+const TELEMETRY_LINK = 'https://analytics.longstraw.earth/89izYjsBMJie/Kalahandi-dMRV-Reporting-Period-1/p/23?embed=true';
 
 function PreviewBanner({ onClose }) {
   const { t } = useTranslation();
