@@ -86,7 +86,41 @@ describe('DataroomViewer', () => {
 
     const bannerImg = screen.getByAltText('Test Dataroom banner');
     expect(bannerImg).toBeInTheDocument();
-    expect(bannerImg).toHaveClass('h-40', 'w-full', 'object-cover', 'md:h-56');
+    // Root hero view is shorter than a sub-folder banner.
+    expect(bannerImg).toHaveClass('h-48', 'w-full', 'object-cover');
+  });
+
+  it('overlays the brand logo on the hero banner at the dataroom root', () => {
+    const bannerData = {
+      ...mockDataroomData,
+      link_type: 'dataroom',
+      branding_banner: 'http://localhost/banner.png',
+    };
+    render(
+      <MemoryRouter initialEntries={['/view/test-slug']}>
+        <DataroomViewer data={bannerData} slug="test-slug" />
+      </MemoryRouter>
+    );
+
+    const bannerSection = screen.getByAltText('Test Dataroom banner').closest('section');
+    expect(bannerSection).toBeInTheDocument();
+
+    const logo = within(bannerSection).getByAltText('Longstraw Carbon logo');
+    expect(logo).toBeInTheDocument();
+    expect(logo.closest('a')).toHaveAttribute('href', '/');
+    expect(bannerSection).toHaveClass('relative');
+
+    // The page header is the other logo surface and must stay out of the way.
+    expect(document.querySelector('header')).toHaveClass('hidden');
+  });
+
+  it('keeps the header logo visible at the root when there is no hero', () => {
+    renderComponent();
+
+    expect(screen.queryByAltText('Test Dataroom banner')).not.toBeInTheDocument();
+    const header = document.querySelector('header');
+    expect(header).not.toHaveClass('hidden');
+    expect(within(header).getByAltText('Longstraw Carbon logo')).toBeInTheDocument();
   });
 
   it('navigates into a sub-folder and displays its contents', async () => {

@@ -852,6 +852,12 @@ export function DataroomViewer({ data, slug, viewId }) {
     && (scopeData?.current_parent_id === null || scopeData?.current_parent_id === undefined);
   const heroGalleryItems = buildHeroGalleryItems(scopeData);
   const heroGalleryEnabled = heroGalleryItems.length > 0;
+  const showBannerSection =
+    scopeData.banner_mode !== 'none' && scopeData.branding_banner && !showDocumentViewer;
+  // The page header carries the brand logo. It is suppressed while a hero
+  // (gallery or banner) paints its own logo at the top of the share page,
+  // otherwise the logo vanished completely on the dataroom root view.
+  const hasHeroAtRoot = isRootHeroView && (heroGalleryEnabled || showBannerSection);
   const isQnaEnabled = (
     documentViewData?.link_settings?.enable_qna
     ?? scopeData?.link_settings?.enable_qna
@@ -927,7 +933,7 @@ export function DataroomViewer({ data, slug, viewId }) {
       className={`flex h-screen w-screen flex-col overflow-y-auto bg-gray-50 transition-[padding] duration-200 ${isQnaEnabled && qnaContext ? 'lg:pr-[34rem] xl:pr-[38rem]' : ''}`}
       style={themeStyle}
     >
-      <header className={`flex flex-shrink-0 items-center justify-between border-b bg-white p-3 sm:p-4${isRootHeroView ? ' hidden' : ''}`}>
+      <header className={`flex flex-shrink-0 items-center justify-between border-b bg-white p-3 sm:p-4${hasHeroAtRoot ? ' hidden' : ''}`}>
         <h1 className="mr-2 truncate text-base font-semibold sm:text-xl" style={{ color: 'var(--viewer-primary)' }}>{scopeData.name}</h1>
         <div className="flex shrink-0 items-center gap-2">
           {brandWebsiteUrl ? (
@@ -980,9 +986,22 @@ export function DataroomViewer({ data, slug, viewId }) {
           {/* Content layer above background (non-interactive except links) */}
           <div className="pointer-events-none relative z-10 flex flex-1 flex-col">
             <header className="flex w-full items-center justify-between gap-3 px-[clamp(14px,3vw,40px)] pt-5">
-              <h1 className="m-0 truncate text-base font-semibold sm:text-lg" style={{ textShadow: '0 1px 6px rgba(0,0,0,.35)' }}>
-                {scopeData.name}
-              </h1>
+              <div className="flex min-w-0 items-center gap-3">
+                {brandLogoUrl ? (
+                  <a
+                    href={brandWebsiteUrl || '/'}
+                    target={brandWebsiteUrl ? '_blank' : undefined}
+                    rel={brandWebsiteUrl ? 'noopener noreferrer' : undefined}
+                    title={brandName}
+                    className="pointer-events-auto flex h-11 w-auto shrink-0 items-center justify-center rounded-lg bg-white/80 p-1 shadow-sm backdrop-blur-sm aspect-[114/44]"
+                  >
+                    <img src={brandLogoUrl} alt={`${brandName} logo`} className="block h-full w-full object-contain" />
+                  </a>
+                ) : null}
+                <h1 className="m-0 truncate text-base font-semibold sm:text-lg" style={{ textShadow: '0 1px 6px rgba(0,0,0,.35)' }}>
+                  {scopeData.name}
+                </h1>
+              </div>
             </header>
 
             <div className="mx-auto mt-auto flex w-full max-w-[920px] flex-col gap-4 px-[clamp(14px,3vw,28px)] pb-7 pt-5">
@@ -994,9 +1013,24 @@ export function DataroomViewer({ data, slug, viewId }) {
         </section>
       )}
 
-      {scopeData.banner_mode !== 'none' && scopeData.branding_banner && !showDocumentViewer && (
-        <section className="flex-shrink-0 border-b bg-white">
+      {showBannerSection && (
+        <section className="relative flex-shrink-0 overflow-hidden border-b bg-white">
           <img src={scopeData.branding_banner} alt={`${scopeData.name} banner`} className={`w-full object-cover object-center${isRootHeroView ? ' h-48' : ' h-40 md:h-56'}`} />
+          {/* Logo sits ON the hero: the page header is hidden on the root view,
+              so this is the only top-of-page brand surface. */}
+          {isRootHeroView && brandLogoUrl ? (
+            <div className="absolute left-3 top-3 z-10 sm:left-4 sm:top-4">
+              <a
+                href={brandWebsiteUrl || '/'}
+                target={brandWebsiteUrl ? '_blank' : undefined}
+                rel={brandWebsiteUrl ? 'noopener noreferrer' : undefined}
+                title={brandName}
+                className="flex h-12 w-auto shrink-0 items-center justify-center rounded-lg bg-white/80 p-1 shadow-sm backdrop-blur-sm aspect-[114/44] sm:h-14"
+              >
+                <img src={brandLogoUrl} alt={`${brandName} logo`} className="block h-full w-full object-contain" />
+              </a>
+            </div>
+          ) : null}
         </section>
       )}
 
@@ -1313,17 +1347,7 @@ export function DataroomViewer({ data, slug, viewId }) {
             <div className="p-12 text-center" style={{ color: 'var(--viewer-secondary)' }}>{t('viewer.emptyFolder')}</div>
           )}
           {isRootHeroView && (
-            <footer className="kalinga-footer flex flex-wrap items-center justify-between gap-3 px-3 py-[18px] text-xs sm:px-4" style={KALINGA_FOOTER_STYLE}>
-              {brandLogoUrl ? (
-                <a
-                  href={brandWebsiteUrl || '/'}
-                  target={brandWebsiteUrl ? '_blank' : undefined}
-                  rel={brandWebsiteUrl ? 'noopener noreferrer' : undefined}
-                  className="inline-flex shrink-0 items-center"
-                >
-                  <img src={brandLogoUrl} alt={`${brandName} logo`} className="h-8 w-auto object-contain" />
-                </a>
-              ) : null}
+            <footer className="kalinga-footer flex flex-wrap items-center justify-end gap-3 px-3 py-[18px] text-xs sm:px-4" style={KALINGA_FOOTER_STYLE}>
               <span className="inline-flex items-center gap-1.5" style={{ color: '#5d625e' }}>
                 {t('settings.language', { defaultValue: 'Language' })}
                 <LanguagePicker />
