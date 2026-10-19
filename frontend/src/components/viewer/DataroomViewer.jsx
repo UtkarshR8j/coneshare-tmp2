@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   ChevronsLeft,
   ChevronsRight,
+  Activity,
 } from 'lucide-react';
 import { formatRelativeTime } from '../../utils/formatters';
 import { useSearchParams } from 'react-router-dom';
@@ -239,7 +240,7 @@ function MobileFadeGallery({ items, interval = 5500 }) {
 
 }
 
-export function DataroomViewer({ data, slug, viewId }) {
+export function DataroomViewer({ data, slug, viewId, onOpenTelemetry }) {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { brandName, brandLogoUrl, brandWebsiteUrl } = useBranding();
@@ -1086,6 +1087,18 @@ export function DataroomViewer({ data, slug, viewId }) {
           )}
         </ol>
 
+        {scopeData.enable_telemetry_access && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenTelemetry?.()}
+            className="ml-2 h-8 shrink-0 gap-1 px-2 text-xs"
+            title={t('viewer.openTelemetry', { defaultValue: 'View telemetry' })}
+          >
+            <Activity className="h-4 w-4" />
+            <span>{t('viewer.openTelemetry', { defaultValue: 'View telemetry' })}</span>
+          </Button>
+        )}
         {showDocumentViewer && (
           <div className="flex items-center gap-1 shrink-0 ml-2">
             <Button

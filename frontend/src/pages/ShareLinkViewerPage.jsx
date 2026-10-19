@@ -474,6 +474,7 @@ export function ShareLinkViewerPage() {
           data={viewData}
           slug={slug}
           viewId={viewId}
+          onOpenTelemetry={() => window.open(`/view/${slug}/telemetry`, '_blank', 'noopener')}
         />
       </>
     );
