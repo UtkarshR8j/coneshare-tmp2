@@ -32,9 +32,10 @@ import { LanguagePicker } from '../components/common/LanguagePicker';
 import { useTranslation } from 'react-i18next';
 
 const PREVIEW_POLL_INTERVAL_MS = 3000;
-// Target behind the View telemetry button. Utkarsh supplies the final link;
-// interim points at the analytics host so the button never lands on a dead URL.
-const TELEMETRY_LINK = 'https://analytics.longstraw.earth';
+// Target behind the View telemetry button. Empty on purpose for now: the
+// button renders on every opted-in dataroom and does nothing until Utkarsh
+// supplies the link.
+const TELEMETRY_LINK = '';
 
 function PreviewBanner({ onClose }) {
   const { t } = useTranslation();
@@ -477,7 +478,7 @@ export function ShareLinkViewerPage() {
           data={viewData}
           slug={slug}
           viewId={viewId}
-          onOpenTelemetry={() => window.open(TELEMETRY_LINK, '_blank', 'noopener')}
+          onOpenTelemetry={() => { if (TELEMETRY_LINK) window.open(TELEMETRY_LINK, '_blank', 'noopener'); }}
         />
       </>
     );
