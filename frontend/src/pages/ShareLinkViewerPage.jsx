@@ -32,9 +32,9 @@ import { LanguagePicker } from '../components/common/LanguagePicker';
 import { useTranslation } from 'react-i18next';
 
 const PREVIEW_POLL_INTERVAL_MS = 3000;
-// The telemetry dashboard is housed on the analytics host, which proxies
-// /view/:slug/telemetry and /api/v1/ back to this stack.
-const TELEMETRY_ORIGIN = 'https://analytics.longstraw.earth';
+// Target behind the View telemetry button. Utkarsh supplies the final link;
+// interim points at the analytics host so the button never lands on a dead URL.
+const TELEMETRY_LINK = 'https://analytics.longstraw.earth';
 
 function PreviewBanner({ onClose }) {
   const { t } = useTranslation();
@@ -477,7 +477,7 @@ export function ShareLinkViewerPage() {
           data={viewData}
           slug={slug}
           viewId={viewId}
-          onOpenTelemetry={() => window.open(`${TELEMETRY_ORIGIN}/view/${slug}/telemetry`, '_blank', 'noopener')}
+          onOpenTelemetry={() => window.open(TELEMETRY_LINK, '_blank', 'noopener')}
         />
       </>
     );
