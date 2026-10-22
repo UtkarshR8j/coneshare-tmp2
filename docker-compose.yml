@@ -1,5 +1,6 @@
 services:
   core:
+    mem_limit: 512m
     build:
       context: ./core
       dockerfile: Dockerfile
@@ -12,6 +13,7 @@ services:
       - ${CONESHARE_DATA_DIR:?Set CONESHARE_DATA_DIR in .env}:/storage
 
   backend:
+    mem_limit: 768m
     image: coneshare:dev
     build:
       context: ./backend
@@ -29,6 +31,7 @@ services:
     env_file: .env
 
   redis:
+    mem_limit: 256m
     image: redis:7-alpine
     restart: unless-stopped
     command: redis-server --save "" --appendonly no
@@ -36,6 +39,7 @@ services:
       - redis_data:/data
 
   celery_worker:
+    mem_limit: 1024m
     image: coneshare:dev
     command: celery -A backend worker -l INFO -Q celery --concurrency=${CELERY_WORKER_CONCURRENCY:-4}
     volumes:
@@ -48,6 +52,7 @@ services:
     env_file: .env
 
   video_worker:
+    mem_limit: 1024m
     image: coneshare:dev
     command: celery -A backend worker -l INFO -Q video_processing --concurrency=${CELERY_VIDEO_WORKER_CONCURRENCY:-1}
     volumes:
@@ -60,6 +65,7 @@ services:
     env_file: .env
 
   celery_beat:
+    mem_limit: 512m
     image: coneshare:dev
     command: celery -A backend beat -l INFO
     volumes:
@@ -71,6 +77,7 @@ services:
     env_file: .env
 
   frontend:
+    mem_limit: 256m
     image: coneshare:frontend
     build:
       context: ./frontend
@@ -82,6 +89,7 @@ services:
       - backend
 
   portal:
+    mem_limit: 256m
     image: coneshare:portal
     build:
       context: ./portal
@@ -92,6 +100,7 @@ services:
     restart: unless-stopped
 
   mcp_server:
+    mem_limit: 256m
     image: coneshare:mcp
     build:
       context: ./mcp-server
@@ -118,6 +127,7 @@ services:
       - backend
 
   clamav:
+    mem_limit: 1024m
     image: clamav/clamav:stable-debian
     restart: unless-stopped
     profiles:
