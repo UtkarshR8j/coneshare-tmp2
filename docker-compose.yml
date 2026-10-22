@@ -9,7 +9,7 @@ services:
     env_file: .env
     volumes:
       - ./core:/app
-      - ~/.coneshare-data:/storage
+      - ${CONESHARE_DATA_DIR:?Set CONESHARE_DATA_DIR in .env}:/storage
 
   backend:
     image: coneshare:dev
