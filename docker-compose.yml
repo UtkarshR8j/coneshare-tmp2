@@ -22,6 +22,8 @@ services:
     # command: tail -f /dev/null
     volumes:
       - ./backend:/app
+      # Uploaded branding media (banners/logos) served by host nginx over /media/.
+      - ${CONESHARE_MEDIA_DIR:-/srv/coneshare-media}:/app/media
     ports:
       - "8000:8000"
     restart: unless-stopped
