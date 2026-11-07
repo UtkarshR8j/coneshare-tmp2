@@ -687,6 +687,8 @@ export const uploadDataroomDocument = async (dataroomId, file, destinationFolder
   });
 };
 export const getDataroomFolderContents = (folderId) => api.get(`/dataroom-folders/${folderId}/`);
+// Flat list of every folder in a dataroom (each carries its `parent` id), used to build the sidebar tree client-side.
+export const getDataroomFolders = (dataroomId) => api.get('/dataroom-folders/', { params: { dataroom_id: dataroomId } });
 export const getShareLinksForDataroom = (dataroomId) => api.get(`/share-links/?dataroom_id=${dataroomId}`);
 export const updateDataroomLinkSettings = (linkId, settings) => api.patch(`/share-links/${linkId}/dataroom-settings/`, settings);
 export const getDataroomViewSessions = (dataroomId, page = 1) => api.get(`/datarooms/${dataroomId}/view-sessions/?page=${page}`);

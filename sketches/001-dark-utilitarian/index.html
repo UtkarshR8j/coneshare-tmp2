@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dataroom Admin - dark utilitarian</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #1a1a1a;
+    --panel: #242424;
+    --panel-2: #2b2b2b;
+    --line: #333;
+    --fg: #f2f2f2;
+    --muted: #9a9a9a;
+    --accent: #e0483a;
+    --radius: 8px;
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg); color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+    display: flex; overflow: hidden;
+  }
+
+  /* icon rail */
+  .rail {
+    width: 58px; flex: 0 0 58px; background: #161616;
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 14px 0; gap: 6px;
+  }
+  .rail .brand {
+    width: 30px; height: 30px; border-radius: 7px; background: var(--accent);
+    display: grid; place-items: center; font-weight: 700; font-size: 14px; margin-bottom: 10px;
+  }
+  .rail button {
+    width: 38px; height: 38px; border: 0; border-radius: 7px; background: transparent;
+    color: var(--muted); font-size: 16px; cursor: pointer; transition: .15s;
+  }
+  .rail button:hover { background: #222; color: #fff; }
+  .rail button.active { background: var(--accent); color: #fff; }
+
+  /* folder tree */
+  .tree {
+    width: 264px; flex: 0 0 264px; background: var(--panel);
+    border-right: 1px solid var(--line); display: flex; flex-direction: column;
+  }
+  .tree-head { padding: 16px 14px 10px; }
+  .tree-head h1 { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+  .search {
+    margin-top: 12px; display: flex; align-items: center; gap: 8px;
+    background: #1c1c1c; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px;
+    color: var(--muted); font-size: 13px;
+  }
+  .toggle { display: flex; gap: 6px; margin-top: 10px; }
+  .toggle button {
+    flex: 1; padding: 6px 0; font-size: 12px; font-weight: 600; border-radius: 6px;
+    border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer;
+  }
+  .toggle button.on { background: #f2f2f2; color: #111; border-color: #f2f2f2; }
+  .tree-list { flex: 1; overflow: auto; padding: 6px 8px 18px; }
+  .node {
+    display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 6px;
+    font-size: 13px; cursor: pointer; color: #ddd; user-select: none;
+  }
+  .node:hover { background: #2c2c2c; }
+  .node.sel { background: #333; color: #fff; }
+  .node .tw { width: 12px; color: var(--muted); font-size: 10px; }
+  .node .ic { color: var(--muted); }
+  .node .nm { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .node .ct {
+    background: #3a3a3a; color: #ccc; font-size: 11px; font-weight: 600;
+    border-radius: 999px; padding: 1px 7px; min-width: 22px; text-align: center;
+  }
+  .node.sel .ct { background: #4a4a4a; }
+  .kids { padding-left: 16px; }
+  .kids .node { color: #c9c9c9; }
+
+  /* main */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    height: 54px; flex: 0 0 54px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 18px;
+    background: var(--panel);
+  }
+  .crumb { font-size: 13px; color: var(--muted); }
+  .crumb b { color: var(--fg); font-weight: 600; }
+  .acts { display: flex; gap: 8px; }
+  .btn {
+    font-size: 12.5px; font-weight: 600; padding: 7px 12px; border-radius: 6px;
+    border: 1px solid var(--line); background: transparent; color: #ddd; cursor: pointer;
+  }
+  .btn:hover { background: #2c2c2c; }
+  .btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.pri:hover { filter: brightness(1.08); }
+
+  .content { flex: 1; overflow: auto; padding: 22px 22px 40px; }
+  .h2 { font-size: 17px; font-weight: 700; margin-bottom: 12px; letter-spacing: -.01em; }
+  .sub { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 26px 0 12px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px; cursor: pointer; transition: .15s;
+  }
+  .card:hover { border-color: #4a4a4a; transform: translateY(-1px); }
+  .card .top { display: flex; align-items: center; gap: 10px; }
+  .card .thumb {
+    width: 34px; height: 34px; border-radius: 7px; background: #383838;
+    display: grid; place-items: center; font-size: 15px;
+  }
+  .card .nm { font-size: 14px; font-weight: 600; }
+  .card .meta { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .card .brand { font-size: 10.5px; color: #6f6f6f; margin-top: 3px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--muted); padding: 0 10px 9px;
+    border-bottom: 1px solid var(--line);
+  }
+  tbody td { padding: 11px 10px; font-size: 13px; border-bottom: 1px solid #2a2a2a; }
+  tbody tr:hover { background: #222; }
+  .who { display: flex; align-items: center; gap: 9px; }
+  .av {
+    width: 26px; height: 26px; border-radius: 999px; background: #3d3d3d;
+    display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #ddd;
+    flex: 0 0 26px;
+  }
+  .av.pic { background: linear-gradient(135deg,#7a4bd0,#2f8fd8); color: #fff; }
+  .em { color: var(--muted); font-size: 12px; }
+  .tag { font-size: 11px; color: var(--muted); }
+
+  /* toast */
+  #toast {
+    position: fixed; right: 20px; bottom: 20px; background: #f2f2f2; color: #111;
+    padding: 11px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    opacity: 0; transform: translateY(8px); transition: .2s; pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<nav class="rail">
+  <div class="brand">L</div>
+  <button title="Home">⌂</button>
+  <button class="active" title="Datarooms">▤</button>
+  <button title="Activity">◷</button>
+  <button title="Analytics">▦</button>
+  <button title="Settings">⚙</button>
+</nav>
+
+<aside class="tree">
+  <div class="tree-head">
+    <h1>Longstraw Carbon Admin</h1>
+    <div class="search">⌕&nbsp; Search folders</div>
+    <div class="toggle">
+      <button class="on">Folders</button>
+      <button>Tags</button>
+    </div>
+  </div>
+  <div class="tree-list" id="tree"></div>
+</aside>
+
+<section class="main">
+  <div class="topbar">
+    <div class="crumb">Datarooms / <b>Terraton &lt;&gt; LongstrawCarbon</b></div>
+    <div class="acts">
+      <button class="btn">Invite</button>
+      <button class="btn pri">Upload</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="h2">Terraton &lt;&gt; LongstrawCarbon</div>
+
+    <div class="sub">File types</div>
+    <div class="cards" id="cards"></div>
+
+    <div class="sub">Recently uploaded</div>
+    <table>
+      <thead>
+        <tr><th style="width:44%">File</th><th>User</th><th>Folder</th><th>Size</th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</section>
+
+<div id="toast"></div>
+
+<script>
+const folders = [
+  { n: 'Financials', c: 12, kids: [ { n: 'FY25 Statements', c: 4 }, { n: 'Invoices', c: 8 } ] },
+  { n: 'Legal', c: 7, kids: [ { n: 'SPAs', c: 3 }, { n: 'Board Resolutions', c: 4 } ] },
+  { n: 'Technical', c: 21, kids: [ { n: 'Kiln Design', c: 9 }, { n: 'Mass Balance', c: 6 }, { n: 'Lab Results', c: 6 } ] },
+  { n: 'Carbon MRV', c: 15, kids: [ { n: 'PDD', c: 5 }, { n: 'Monitoring Reports', c: 10 } ] },
+  { n: 'Corporate', c: 9 },
+];
+const types = [
+  { i: '📄', n: 'PDD', c: '5 documents', b: 'Longstraw Carbon' },
+  { i: '📊', n: 'Monitoring', c: '10 documents', b: 'Longstraw Carbon' },
+  { i: '📐', n: 'Kiln Design', c: '9 documents', b: 'Longstraw Carbon' },
+  { i: '🧪', n: 'Lab Results', c: '6 documents', b: 'Longstraw Carbon' },
+];
+const rows = [
+  { f: 'Kalinga_PDD_v3.2.pdf', u: 'utkarsh@longstraw.in', ini: 'U', pic: false, d: 'Carbon MRV / PDD', s: '4.2 MB' },
+  { f: 'Odisha_Biomass_Survey.xlsx', u: 'ernesto@longstraw.in', ini: 'E', pic: true, d: 'Technical / Mass Balance', s: '812 KB' },
+  { f: 'Kiln_Performance_Q3.csv', u: 'utkarsh@longstraw.in', ini: 'U', pic: false, d: 'Carbon MRV / Monitoring', s: '126 KB' },
+  { f: 'SPA_Terraton_executed.pdf', u: 'legal@longstraw.in', ini: 'L', pic: false, d: 'Legal / SPAs', s: '2.1 MB' },
+];
+
+const tree = document.getElementById('tree');
+folders.forEach(f => {
+  tree.insertAdjacentHTML('beforeend',
+    `<div class="node" data-n="${f.n}"><span class="tw">▾</span><span class="ic">▤</span><span class="nm">${f.n}</span><span class="ct">${f.c}</span></div>`);
+  if (f.kids) tree.insertAdjacentHTML('beforeend',
+    `<div class="kids">${f.kids.map(k =>
+      `<div class="node" data-n="${f.n} / ${k.n}"><span class="tw"></span><span class="ic">▢</span><span class="nm">${k.n}</span><span class="ct">${k.c}</span></div>`).join('')}</div>`);
+});
+
+const cards = document.getElementById('cards');
+types.forEach(t => cards.insertAdjacentHTML('beforeend',
+  `<div class="card"><div class="top"><div class="thumb">${t.i}</div><div class="nm">${t.n}</div></div>
+   <div class="meta">${t.c}</div><div class="brand">${t.b}</div></div>`));
+
+const rowsEl = document.getElementById('rows');
+rows.forEach(r => rowsEl.insertAdjacentHTML('beforeend',
+  `<tr><td>${r.f}</td>
+   <td><div class="who"><div class="av ${r.pic ? 'pic' : ''}">${r.ini}</div><div><div>${r.u.split('@')[0]}</div><div class="em">${r.u}</div></div></div></td>
+   <td class="tag">${r.d}</td><td class="tag">${r.s}</td></tr>`));
+
+function toast(m) {
+  const t = document.getElementById('toast');
+  t.textContent = m; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1800);
+}
+document.querySelectorAll('.node').forEach(n => n.addEventListener('click', () => {
+  document.querySelectorAll('.node').forEach(x => x.classList.remove('sel'));
+  n.classList.add('sel');
+  toast('Opened ' + n.dataset.n);
+}));
+document.querySelector('.btn.pri').addEventListener('click', () => toast('Upload dialog'));
+document.querySelectorAll('.toggle button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.toggle button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+}));
+</script>
+</body>
+</html>

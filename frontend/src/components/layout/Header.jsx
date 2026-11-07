@@ -60,7 +60,7 @@ function Header() {
   };
 
   return (
-    <header className="flex h-14 items-center gap-4 border-b bg-gray-100/40 px-6 dark:bg-gray-800/40">
+    <header className="flex h-16 items-center gap-4 border-b border-border bg-card px-8">
       {renderBreadcrumbs()}
     </header>
   );

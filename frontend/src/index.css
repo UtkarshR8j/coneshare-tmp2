@@ -1,46 +1,69 @@
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
+  /* Light "airy" palette. Same design language as the 002 dark mockup but
+     inverted for daylight: soft paper canvas, white panels, hairline borders,
+     and the teal accent as the only chromatic signal. 10px radii throughout. */
+  --background: 200 20% 98%;
+  --foreground: 205 35% 13%;
+
   --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card-foreground: 205 35% 13%;
+
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
-  --radius: 0.5rem;
+  --popover-foreground: 205 35% 13%;
+
+  --primary: 200 68% 42%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 200 17% 95%;
+  --secondary-foreground: 205 35% 13%;
+
+  --muted: 200 17% 95%;
+  --muted-foreground: 212 14% 40%;
+
+  --accent: 200 30% 94%;
+  --accent-foreground: 205 35% 13%;
+
+  --destructive: 0 72% 45%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 205 25% 89%;
+  --input: 205 25% 89%;
+  --ring: 200 68% 42%;
+  --radius: 0.625rem;
 }
 
+/* Dark "airy" theme. Palette derived from the approved 002 mockup:
+   canvas #14161a, panel #1a1d22, raised #202429, hairline #2b3037,
+   text #e9ecf1, muted #8b93a1, teal accent #2f9fd8.
+   Deliberately NOT the stock shadcn slate: neutral-cool and low-saturation
+   so the teal is the only chromatic signal on screen. */
 .dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
+  --background: 220 13% 9%;
+  --foreground: 218 22% 93%;
+
+  --card: 218 13% 12%;
+  --card-foreground: 218 22% 93%;
+  --popover: 218 13% 12%;
+  --popover-foreground: 218 22% 93%;
+
+  --primary: 200 68% 52%;
+  --primary-foreground: 204 62% 6%;
+
+  --secondary: 213 12% 14%;
+  --secondary-foreground: 218 22% 93%;
+
+  --muted: 213 12% 14%;
+  --muted-foreground: 218 10% 59%;
+
+  --accent: 213 12% 14%;
+  --accent-foreground: 218 22% 93%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 215 12% 19%;
+  --input: 215 12% 19%;
+  --ring: 200 68% 52%;
 }
 
 @tailwind base;
@@ -53,6 +76,13 @@
   }
 }
 
+/* Counts and quantities read as plain numbers, not badges.
+   Tabular figures keep tree/row counts on a stable right edge as they change. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
 .text-layer {
   container-type: size;
 }
@@ -63,6 +93,6 @@
 }
 
 .text-layer span::selection {
-  background: rgba(59, 130, 246, 0.35);
+  background: rgba(47, 159, 216, 0.35);
   color: transparent;
 }

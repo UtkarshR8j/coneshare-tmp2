@@ -23,7 +23,13 @@ services:
     volumes:
       - ./backend:/app
       # Uploaded branding media (banners/logos) served by host nginx over /media/.
-      - ${CONESHARE_MEDIA_DIR:-/srv/coneshare-media}:/app/media
+      # Host side is dev-own via CONESHARE_MEDIA_DIR (T5) - dev must never write
+      # into prod's /srv/coneshare-media. The dev vhost aliases /srv/coneshare-media-dev.
+      # Container side: the image WORKDIR is /home/coneshare/app, NOT /app, so Django's
+      # MEDIA_ROOT (BASE_DIR/media) resolves here. Without this second bind,
+      # uploaded banners/logos land in the container layer and vanish on
+      # recreate, and nginx 404s them.
+      - ${CONESHARE_MEDIA_DIR:-/srv/coneshare-media}:/home/coneshare/app/media
     ports:
       - "8000:8000"
     restart: unless-stopped

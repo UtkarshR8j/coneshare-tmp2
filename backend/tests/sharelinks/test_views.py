@@ -1963,6 +1963,47 @@ class TestShareLinkViewSet:
         dataroom_link.refresh_from_db()
         assert dataroom_link.is_active is False
 
+    def test_patch_link_permission_toggles_cascade_to_dataroom_settings(self, api_client, user, document, dataroom):
+        """
+        Regression test: patching allow_download/enable_watermark on a dataroom
+        share link must cascade to all ShareLinkDataroomSetting rows, otherwise
+        the link-level toggles are dead switches (per-item rows, seeded once at
+        creation, are what the viewer/download endpoints actually read).
+        """
+        DataroomDocument.objects.create(dataroom=dataroom, document=document)
+        link = ShareLink.objects.create(
+            dataroom=dataroom, created_by=user, allow_download=False, enable_watermark=True
+        )
+        # Sanity: the post_save signal seeded per-item rows from the link values.
+        seeded = ShareLinkDataroomSetting.objects.filter(share_link=link)
+        assert seeded.count() == 1
+        assert seeded.first().allow_download is False
+
+        url = f'/api/v1/share-links/{link.id}/'
+        response = api_client.patch(
+            url, {'allow_download': True, 'enable_watermark': False}, format='json'
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        for setting in ShareLinkDataroomSetting.objects.filter(share_link=link):
+            assert setting.allow_download is True
+            assert setting.enable_watermark is False
+
+    def test_patch_without_permission_fields_leaves_dataroom_settings(self, api_client, user, document, dataroom):
+        """Unrelated link updates must NOT touch per-item dataroom settings."""
+        DataroomDocument.objects.create(dataroom=dataroom, document=document)
+        link = ShareLink.objects.create(
+            dataroom=dataroom, created_by=user, allow_download=False, enable_watermark=True
+        )
+
+        url = f'/api/v1/share-links/{link.id}/'
+        response = api_client.patch(url, {'name': 'renamed'}, format='json')
+        assert response.status_code == status.HTTP_200_OK
+
+        setting = ShareLinkDataroomSetting.objects.get(share_link=link)
+        assert setting.allow_download is False
+        assert setting.enable_watermark is True
+
 
 @pytest.mark.django_db
 class TestShareLinkEmailProtection:

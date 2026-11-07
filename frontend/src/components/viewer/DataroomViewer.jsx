@@ -42,27 +42,19 @@ import { DATAROOM_VIEWER_PAGE_SIZE } from '../../constants/pagination';
 import AccordionGallery from './AccordionGallery';
 import './AccordionGallery.css';
 
-const GALLERY_ITEMS = [
-  { image: 'https://d2p5uoj6rqd2yg.cloudfront.net/assets/gallery/kalinga-01.jpg' },
-  { image: 'https://d2p5uoj6rqd2yg.cloudfront.net/assets/gallery/kalinga-02.jpg' },
-  { image: 'https://d2p5uoj6rqd2yg.cloudfront.net/assets/gallery/kalinga-03.jpg' },
-  { image: 'https://d2p5uoj6rqd2yg.cloudfront.net/assets/gallery/kalinga-04.jpg' },
-];
-
-// Derive the hero gallery images from the dataroom's stored gallery when the
-// banner mode is 'gallery'; falls back to the default Longstraw Carbon set otherwise.
+// Hero gallery images come ONLY from the dataroom's own stored gallery.
+// There is deliberately no fallback set here: an earlier version fell back to
+// a hardcoded demo gallery, which painted a banner onto every dataroom whose
+// owner had not configured one.
 function buildHeroGalleryItems(scopeData) {
   const mode = scopeData?.banner_mode || 'single';
+  if (mode !== 'gallery') {
+    return [];
+  }
   const stored = Array.isArray(scopeData?.banner_images)
     ? scopeData.banner_images.filter((img) => img && img.url)
     : [];
-  if (mode === 'none') {
-    return [];
-  }
-  if (mode === 'gallery' && stored.length > 0) {
-    return stored.map((img) => ({ image: img.url, caption: img.caption }));
-  }
-  return GALLERY_ITEMS;
+  return stored.map((img) => ({ image: img.url, caption: img.caption }));
 }
 import { useBranding } from '../../contexts/BrandingProvider';
 import { LanguagePicker } from '../common/LanguagePicker';
@@ -547,7 +539,10 @@ export function DataroomViewer({ data, slug, viewId, onOpenTelemetry }) {
   }, [scopeData]);
 
   useEffect(() => {
-    if (!selectedDocumentId || rootItems.length > 0 || isRootLoading) return;
+    // Root items feed the sidebar tree, so they must load on the share landing
+    // view as well. Previously this bailed unless a document was already open,
+    // which meant the tree could never render anything before a click.
+    if (rootItems.length > 0 || isRootLoading) return;
     const fetchRootItems = async () => {
       setIsRootLoading(true);
       try {
@@ -560,7 +555,7 @@ export function DataroomViewer({ data, slug, viewId, onOpenTelemetry }) {
       }
     };
     fetchRootItems();
-  }, [slug, selectedDocumentId, rootItems.length, isRootLoading]);
+  }, [slug, rootItems.length, isRootLoading]);
 
   useEffect(() => {
     const currentParentId = scopeData?.current_parent_id ? String(scopeData.current_parent_id) : null;
@@ -858,6 +853,12 @@ export function DataroomViewer({ data, slug, viewId, onOpenTelemetry }) {
     && (scopeData?.current_parent_id === null || scopeData?.current_parent_id === undefined);
   const heroGalleryItems = buildHeroGalleryItems(scopeData);
   const heroGalleryEnabled = heroGalleryItems.length > 0;
+  const showBannerSection =
+    scopeData.banner_mode !== 'none' && scopeData.branding_banner && !showDocumentViewer;
+  // The page header carries the brand logo. It is suppressed while a hero
+  // (gallery or banner) paints its own logo at the top of the share page,
+  // otherwise the logo vanished completely on the dataroom root view.
+  const hasHeroAtRoot = isRootHeroView && (heroGalleryEnabled || showBannerSection);
   const isQnaEnabled = (
     documentViewData?.link_settings?.enable_qna
     ?? scopeData?.link_settings?.enable_qna
@@ -933,7 +934,7 @@ export function DataroomViewer({ data, slug, viewId, onOpenTelemetry }) {
       className={`flex h-screen w-screen flex-col overflow-y-auto bg-gray-50 transition-[padding] duration-200 ${isQnaEnabled && qnaContext ? 'lg:pr-[34rem] xl:pr-[38rem]' : ''}`}
       style={themeStyle}
     >
-      <header className={`flex flex-shrink-0 items-center justify-between border-b bg-white p-3 sm:p-4${isRootHeroView ? ' hidden' : ''}`}>
+      <header className={`flex flex-shrink-0 items-center justify-between border-b bg-white p-3 sm:p-4${hasHeroAtRoot ? ' hidden' : ''}`}>
         <h1 className="mr-2 truncate text-base font-semibold sm:text-xl" style={{ color: 'var(--viewer-primary)' }}>{scopeData.name}</h1>
         <div className="flex shrink-0 items-center gap-2">
           {brandWebsiteUrl ? (
@@ -986,9 +987,22 @@ export function DataroomViewer({ data, slug, viewId, onOpenTelemetry }) {
           {/* Content layer above background (non-interactive except links) */}
           <div className="pointer-events-none relative z-10 flex flex-1 flex-col">
             <header className="flex w-full items-center justify-between gap-3 px-[clamp(14px,3vw,40px)] pt-5">
-              <h1 className="m-0 truncate text-base font-semibold sm:text-lg" style={{ textShadow: '0 1px 6px rgba(0,0,0,.35)' }}>
-                {scopeData.name}
-              </h1>
+              <div className="flex min-w-0 items-center gap-3">
+                {brandLogoUrl ? (
+                  <a
+                    href={brandWebsiteUrl || '/'}
+                    target={brandWebsiteUrl ? '_blank' : undefined}
+                    rel={brandWebsiteUrl ? 'noopener noreferrer' : undefined}
+                    title={brandName}
+                    className="pointer-events-auto flex h-11 w-auto shrink-0 items-center justify-center rounded-lg bg-white/80 p-1 shadow-sm backdrop-blur-sm aspect-[114/44]"
+                  >
+                    <img src={brandLogoUrl} alt={`${brandName} logo`} className="block h-full w-full object-contain" />
+                  </a>
+                ) : null}
+                <h1 className="m-0 truncate text-base font-semibold sm:text-lg" style={{ textShadow: '0 1px 6px rgba(0,0,0,.35)' }}>
+                  {scopeData.name}
+                </h1>
+              </div>
             </header>
 
             <div className="mx-auto mt-auto flex w-full max-w-[920px] flex-col gap-4 px-[clamp(14px,3vw,28px)] pb-7 pt-5">
@@ -1000,9 +1014,24 @@ export function DataroomViewer({ data, slug, viewId, onOpenTelemetry }) {
         </section>
       )}
 
-      {scopeData.banner_mode !== 'none' && scopeData.branding_banner && !showDocumentViewer && (
-        <section className="flex-shrink-0 border-b bg-white">
-          <img src={scopeData.branding_banner} alt={`${scopeData.name} banner`} className={`w-full object-cover${isRootHeroView ? ' max-h-48' : ' h-40 md:h-56'}`} />
+      {showBannerSection && (
+        <section className="relative flex-shrink-0 overflow-hidden border-b bg-white">
+          <img src={scopeData.branding_banner} alt={`${scopeData.name} banner`} className={`w-full object-cover object-center${isRootHeroView ? ' h-48' : ' h-40 md:h-56'}`} />
+          {/* Logo sits ON the hero: the page header is hidden on the root view,
+              so this is the only top-of-page brand surface. */}
+          {isRootHeroView && brandLogoUrl ? (
+            <div className="absolute left-3 top-3 z-10 sm:left-4 sm:top-4">
+              <a
+                href={brandWebsiteUrl || '/'}
+                target={brandWebsiteUrl ? '_blank' : undefined}
+                rel={brandWebsiteUrl ? 'noopener noreferrer' : undefined}
+                title={brandName}
+                className="flex h-12 w-auto shrink-0 items-center justify-center rounded-lg bg-white/80 p-1 shadow-sm backdrop-blur-sm aspect-[114/44] sm:h-14"
+              >
+                <img src={brandLogoUrl} alt={`${brandName} logo`} className="block h-full w-full object-contain" />
+              </a>
+            </div>
+          ) : null}
         </section>
       )}
 
@@ -1258,7 +1287,21 @@ export function DataroomViewer({ data, slug, viewId, onOpenTelemetry }) {
           )}
         </main>
       ) : (
-        <main className="min-h-screen border-t">
+        <main className="flex min-h-screen border-t">
+          <DataroomFileTree
+            slug={slug}
+            viewId={viewId}
+            items={rootItems}
+            selectedDocumentId={selectedDocumentId}
+            onItemClick={handleItemClick}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={handleToggleSidebarCollapse}
+            currentFolderName={breadcrumbs[breadcrumbs.length - 1]?.name || scopeData.name}
+            activePathFolderIds={activePathFolderIds}
+          />
+          {/* data-testid scopes test queries to the file list; the sidebar tree
+              renders the same folder/document names, so unscoped queries are ambiguous. */}
+          <div className="flex min-w-0 flex-1 flex-col" data-testid="share-file-list">
           <div
             className="flex w-full items-center border-b px-3 py-2 text-xs font-medium sm:px-4"
             style={{
@@ -1317,17 +1360,14 @@ export function DataroomViewer({ data, slug, viewId, onOpenTelemetry }) {
             <div className="p-12 text-center" style={{ color: 'var(--viewer-secondary)' }}>{t('viewer.emptyFolder')}</div>
           )}
           {isRootHeroView && (
-            <footer className="kalinga-footer flex flex-wrap items-center justify-between gap-3 px-3 py-[18px] text-xs sm:px-4" style={KALINGA_FOOTER_STYLE}>
-              <span>
-                {t('viewer.poweredBy')}{' '}
-                <a href="https://github.com/coneshare/coneshare" target="_blank" rel="noopener noreferrer" className="font-medium" style={{ color: '#1b1f1c' }}>Coneshare</a>
-              </span>
+            <footer className="kalinga-footer flex flex-wrap items-center justify-end gap-3 px-3 py-[18px] text-xs sm:px-4" style={KALINGA_FOOTER_STYLE}>
               <span className="inline-flex items-center gap-1.5" style={{ color: '#5d625e' }}>
                 {t('settings.language', { defaultValue: 'Language' })}
                 <LanguagePicker />
               </span>
             </footer>
           )}
+          </div>
         </main>
       )}
 
