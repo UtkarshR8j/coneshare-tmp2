@@ -26,7 +26,7 @@ services:
       # MEDIA_ROOT (BASE_DIR/media) resolves here. Without this second bind,
       # uploaded banners/logos land in the container layer and vanish on
       # recreate, and nginx 404s them.
-      - ./backend/media:/home/coneshare/app/media
+      - /srv/storage/longstraw/media:/home/coneshare/app/media
     ports:
       - "8000:8000"
     restart: unless-stopped
