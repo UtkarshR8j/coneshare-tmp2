@@ -305,7 +305,12 @@
     "privacy": "Privacy Policy",
     "logout": "Log Out",
     "forgotPassword": "Forgot Password?",
-    "verifyEmail": "Verify your email"
+    "verifyEmail": "Verify your email",
+    "tagline": "secure file sharing utility for internal stakeholders",
+    "supportNote": "Please contact tech@longstraw.in in case of any issues",
+    "continueWithGoogle": "Continue with Google",
+    "orContinueWithEmail": "or continue with email",
+    "ssoFailed": "Sign-in failed. Please try again."
   },
   "documents": {
     "title": "Documents",

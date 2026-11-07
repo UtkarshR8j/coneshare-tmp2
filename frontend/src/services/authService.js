@@ -44,10 +44,27 @@ const getPublicSettings = async () => {
   return response.data;
 };
 
+/**
+ * Persist the JWTs handed back by the backend OIDC flow. They arrive in the
+ * URL fragment of /auth/callback and are stored under the same keys a normal
+ * password login uses, so every interceptor keeps working unchanged.
+ */
+const storeTokenFragment = (hash) => {
+  const params = new URLSearchParams((hash || '').replace(/^#/, ''));
+  const error = params.get('error');
+  if (error) return { error };
+  const access = params.get('access');
+  const refresh = params.get('refresh');
+  if (!access) return { error: 'missing_token' };
+  storeTokens({ access, refresh });
+  return { access, refresh };
+};
+
 export const authService = {
   login,
   logout,
   requestSignup,
   verifySignup,
   getPublicSettings,
+  storeTokenFragment,
 };
