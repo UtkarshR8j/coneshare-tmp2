@@ -18,6 +18,7 @@ import DocumentsPage from './pages/DocumentsPage';
 import TrashPage from './pages/TrashPage';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
+import OidcCallbackPage from './pages/OidcCallbackPage';
 import { SignupPage } from './pages/SignupPage';
 import { SignupVerifyPage } from './pages/SignupVerifyPage';
 import PasswordSettingsPage from './pages/PasswordSettingsPage';
@@ -48,6 +49,9 @@ function App() {
           <UploadProvider>
             <Routes>
             <Route path="/login" element={<LoginPage />} />
+          {/* Root renders the full-screen split login, outside the app shell. */}
+          <Route path="/" element={<LoginPage />} />
+          <Route path="/auth/callback" element={<OidcCallbackPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/signup/verify" element={<SignupVerifyPage />} />
           <Route path="/view/:slug" element={<ShareLinkViewerPage />} />
@@ -56,7 +60,6 @@ function App() {
           <Route path="/auth/:providerName/callback" element={<CloudAuthCallbackPage />} />
           <Route path="/500" element={<ErrorPage />} />
           <Route element={<MainLayout />}>
-            <Route path="/" element={<LoginPage />} />
             <Route path="/dashboard" element={<HomePage />} />
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/documents/folders/:folderId" element={<DocumentsPage />} />
