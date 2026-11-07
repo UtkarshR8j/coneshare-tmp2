@@ -60,6 +60,21 @@ if SITE_HOSTNAME and SITE_HOSTNAME not in default_hosts:
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', ','.join(default_hosts)).split(',')
 CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', SITE_DOMAIN).split(',')
 
+
+# OIDC relying party (Google sign-in through Dex, issuer assets.longstraw.earth/dex).
+# Lives in core/oidc_views.py. Disabled unless both client id and secret are set.
+OIDC_ISSUER = os.environ.get('OIDC_ISSUER', 'https://assets.longstraw.earth/dex').rstrip('/')
+OIDC_CLIENT_ID = os.environ.get('OIDC_CLIENT_ID', '').strip()
+OIDC_CLIENT_SECRET = os.environ.get('OIDC_CLIENT_SECRET', '').strip()
+OIDC_SCOPES = os.environ.get('OIDC_SCOPES', 'openid profile email')
+OIDC_AUTHORIZE_URL = os.environ.get('OIDC_AUTHORIZE_URL', f'{OIDC_ISSUER}/auth')
+OIDC_TOKEN_URL = os.environ.get('OIDC_TOKEN_URL', f'{OIDC_ISSUER}/token')
+OIDC_JWKS_URL = os.environ.get('OIDC_JWKS_URL', f'{OIDC_ISSUER}/keys')
+OIDC_REDIRECT_URI = os.environ.get(
+    'OIDC_REDIRECT_URI', f"{SITE_DOMAIN.rstrip('/')}/api/v1/oidc/callback/"
+)
+OIDC_LOGIN_ENABLED = bool(OIDC_CLIENT_ID and OIDC_CLIENT_SECRET)
+
 # File Server (Core Service) Configuration
 CORE_API_URL = os.environ.get('CORE_API_URL', 'http://core:8080')
 INTERNAL_API_TOKEN = os.environ.get('INTERNAL_API_TOKEN')
