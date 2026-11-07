@@ -186,7 +186,7 @@ describe("LoginPage", () => {
 
     const logo = within(aside).getByAltText(/logo/i);
     expect(logo.getAttribute("src")).toBe("/brand/longstraw-carbon-logo-white.png");
-    expect(logo.getAttribute("class")).toContain("md:h-[72px]");
+    expect(logo.getAttribute("class")).toContain("h-[72px]");
 
     expect(
       screen.getByText(/Please contact tech@longstraw\.in in case of any issues/i)
@@ -211,10 +211,10 @@ describe("LoginPage", () => {
     });
   });
 
-  it("offers Continue with Google above the email form", () => {
+  it("offers Login with longstraw.earth above the email form", () => {
     renderComponent();
 
-    const google = screen.getByRole("link", { name: /continue with google/i });
+    const google = screen.getByRole("link", { name: /login with longstraw.earth/i });
     expect(google.getAttribute("href")).toBe("/api/v1/oidc/login/");
     expect(google.className).toContain("#00677f");
 
