@@ -51,7 +51,8 @@ def _begin(client):
     response = client.get(reverse('oidc_login'))
     assert response.status_code == status.HTTP_302_FOUND
     location = response['Location']
-    assert location.startswith(f'{ISSUER}/auth?')
+    # Google-first: login must deep-link Dex's Google connector (no picker).
+    assert location.startswith(f'{ISSUER}/auth/google?')
     query = parse_qs(urlparse(location).query)
     assert query['client_id'] == ['coneshare-dev']
     assert query['response_type'] == ['code']
