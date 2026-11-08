@@ -14,7 +14,7 @@ export function SplitBrandLayout({ brandName, children }) {
         className="relative flex min-h-[220px] w-full flex-col overflow-hidden px-7 py-8 text-white md:min-h-screen md:w-[44%] md:px-14 md:py-[52px]"
         style={{
           backgroundImage:
-            'linear-gradient(180deg, rgba(20,40,50,.75) 0%, rgba(16,33,41,.87) 100%), url(/brand/left-panel.jpg)',
+            'linear-gradient(180deg, rgba(20,40,50,.75) 0%, rgba(16,33,41,.87) 100%), url(/brand/left-panel.jpg?v=2)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
