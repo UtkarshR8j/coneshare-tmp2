@@ -319,6 +319,18 @@ def verify_dataroom_not_accessible(user_context, email, dataroom_name):
     assert dataroom_name not in names
 
 
+@then(parsers.parse('"{dataroom_name}" should still appear in "{email}"\'s accessible datarooms through org membership'))
+def verify_dataroom_accessible_via_org(user_context, email, dataroom_name):
+    collab = user_context['collab_user']
+    collab_client = APIClient()
+    collab_client.force_authenticate(user=collab)
+
+    response = collab_client.get('/api/v1/datarooms/')
+    assert response.status_code == status.HTTP_200_OK
+    names = [d['name'] for d in response.data]
+    assert dataroom_name in names
+
+
 @when(parsers.parse('"{email}" attempts to delete dataroom "{dataroom_name}"'))
 def collab_attempts_delete_dataroom(user_context, email, dataroom_name):
     room = user_context['dataroom']

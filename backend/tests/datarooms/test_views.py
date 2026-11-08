@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
+from core.models import Organization, User
 from datarooms.models import Dataroom, DataroomDocument, DataroomFolder, DataroomItemOrder
 from datarooms.services import touch_dataroom_folder_ancestors, get_dataroom_storage_used_bytes
 from datarooms.utils import get_dataroom_storage_folder_name
@@ -18,18 +19,31 @@ from sharelinks.models import DataroomVisit, ShareLink, ViewSession
 pytestmark = pytest.mark.django_db
 
 
+@pytest.fixture
+def foreign_user(db):
+    """A user from another organization: dataroom isolation now holds across orgs, not across members."""
+    other_org = Organization.objects.create(name="Foreign Org")
+    return User.objects.create_user(
+        username="foreign@other.com", email="foreign@other.com", password="password", organization=other_org,
+    )
+
+
 class TestDataroomViewSet:
-    def test_list_datarooms_scoped_to_user(self, api_client, user, user2, organization):
+    def test_list_datarooms_scoped_to_organization(self, api_client, user, user2, organization):
         """
-        Test retrieving datarooms is scoped to the user who created them.
+        Org members see every dataroom of their organization; rooms of other orgs stay hidden.
         """
         Dataroom.objects.create(name="My Dataroom", organization=organization, created_by=user)
         Dataroom.objects.create(name="Other's Dataroom", organization=organization, created_by=user2)
+        other_org = Organization.objects.create(name="Foreign Org")
+        foreign_user = User.objects.create_user(
+            username="foreign@other.com", email="foreign@other.com", password="password", organization=other_org,
+        )
+        Dataroom.objects.create(name="Foreign Dataroom", organization=other_org, created_by=foreign_user)
 
         response = api_client.get('/api/v1/datarooms/')
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
-        assert response.data[0]['name'] == "My Dataroom"
+        assert sorted(item['name'] for item in response.data) == ["My Dataroom", "Other's Dataroom"]
 
     def test_list_datarooms_ordered_by_created_at_desc(self, api_client, user, organization):
         """
@@ -114,9 +128,9 @@ class TestDataroomViewSet:
         assert data['items'][1]['type'] == 'document'
         assert data['items'][1]['dataroom_view_count'] == 1
 
-    def test_cannot_access_other_users_dataroom_folders(self, api_client, user2, organization):
-        """A user cannot list or retrieve folders from a dataroom created by another user."""
-        other_dataroom = Dataroom.objects.create(name="Other DR", organization=organization, created_by=user2)
+    def test_cannot_access_other_users_dataroom_folders(self, api_client, foreign_user):
+        """A user cannot list or retrieve folders from another organization's dataroom."""
+        other_dataroom = Dataroom.objects.create(name="Other DR", organization=foreign_user.organization, created_by=foreign_user)
         other_folder = DataroomFolder.objects.create(name="Other Folder", dataroom=other_dataroom)
 
         # 1. Test listing: should not appear in the general list
@@ -158,7 +172,7 @@ class TestDataroomViewSet:
             assert len(response.json()['ancestors']) == 2
 
     def test_delete_dataroom_permission_denied(self, api_client, user2, organization):
-        """Test that a user cannot delete another user's dataroom."""
+        """An org member sees another member's dataroom but cannot delete it."""
         dataroom_by_user2 = Dataroom.objects.create(
             organization=organization,
             created_by=user2,
@@ -166,7 +180,7 @@ class TestDataroomViewSet:
         )
 
         response = api_client.delete(f'/api/v1/datarooms/{dataroom_by_user2.id}/')
-        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Dataroom.objects.filter(id=dataroom_by_user2.id).exists()
 
     def test_delete_dataroom_success(self, api_client, dataroom):
@@ -829,8 +843,8 @@ class TestDataroomViewSet:
         }, format="json")
         assert reorder_res.status_code == status.HTTP_200_OK
 
-    def test_reorder_items_other_user_dataroom_returns_404(self, api_client, user2, organization, document):
-        other_room = Dataroom.objects.create(name="Other", organization=organization, created_by=user2)
+    def test_reorder_items_other_user_dataroom_returns_404(self, api_client, foreign_user, document):
+        other_room = Dataroom.objects.create(name="Other", organization=foreign_user.organization, created_by=foreign_user)
         ddoc = DataroomDocument.objects.create(dataroom=other_room, document=document, name=document.name)
 
         url = f'/api/v1/datarooms/{other_room.id}/reorder-items/'
@@ -1693,9 +1707,9 @@ class TestDataroomDocumentViewSet:
         ddoc2.refresh_from_db()
         assert ddoc2.name == 'contract.pdf'
 
-    def test_rename_document_other_user_dataroom_returns_404(self, api_client, user2, organization, document):
-        """Test user cannot rename document in another user's dataroom."""
-        other_room = Dataroom.objects.create(name="Other Room", organization=organization, created_by=user2)
+    def test_rename_document_other_user_dataroom_returns_404(self, api_client, foreign_user, document):
+        """Test user cannot rename document in another organization's dataroom."""
+        other_room = Dataroom.objects.create(name="Other Room", organization=foreign_user.organization, created_by=foreign_user)
         ddoc = DataroomDocument.objects.create(dataroom=other_room, document=document, name='Doc.pdf')
 
         url = f'/api/v1/dataroom-documents/{ddoc.id}/'

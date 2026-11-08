@@ -124,13 +124,17 @@ class TestAdminDataroomViewSet:
         d_admin = Dataroom.objects.create(name="Admin's Personal Room", organization=org, created_by=admin_user, storage_version=2)
         # Room created by user (admin is NOT a member/collaborator)
         d_user = Dataroom.objects.create(name="User's Private Room", organization=org, created_by=user, storage_version=2)
+        other_org = Organization.objects.create(name="Foreign Corp")
+        foreign_user = User.objects.create_user(username="f@foreign.com", email="f@foreign.com", password="password", organization=other_org)
+        d_foreign = Dataroom.objects.create(name="Foreign Room", organization=other_org, created_by=foreign_user, storage_version=2)
 
-        # 1. Standard Workspace listing (/api/v1/datarooms/): Admin only sees their own rooms
+        # 1. Standard Workspace listing (/api/v1/datarooms/): every room of the admin's org, nothing foreign
         ws_res = admin_api_client.get('/api/v1/datarooms/')
         assert ws_res.status_code == status.HTTP_200_OK
         ws_ids = [item['id'] for item in ws_res.data]
         assert str(d_admin.id) in ws_ids
-        assert str(d_user.id) not in ws_ids
+        assert str(d_user.id) in ws_ids
+        assert str(d_foreign.id) not in ws_ids
 
         # 2. Admin Governance listing (/api/v1/admin/datarooms/): Admin sees ALL organization rooms
         admin_res = admin_api_client.get('/api/v1/admin/datarooms/')
@@ -187,12 +191,14 @@ class TestAdminDataroomViewSet:
     def test_workspace_list_does_not_allow_scope_org_escape_hatch(self, admin_api_client, admin_user, user):
         org = admin_user.organization
         admin_room = Dataroom.objects.create(name="Admin Room", organization=org, created_by=admin_user, storage_version=2)
-        other_user_room = Dataroom.objects.create(name="Other User Room", organization=org, created_by=user, storage_version=2)
+        other_org = Organization.objects.create(name="Foreign Corp")
+        foreign_user = User.objects.create_user(username="f@foreign.com", email="f@foreign.com", password="password", organization=other_org)
+        foreign_room = Dataroom.objects.create(name="Foreign Room", organization=other_org, created_by=foreign_user, storage_version=2)
 
-        # Standard workspace endpoint with scope=org should NOT return non-participating rooms
+        # Standard workspace endpoint with scope=org must never widen past the user's own org
         res = admin_api_client.get('/api/v1/datarooms/?scope=org')
         assert res.status_code == status.HTTP_200_OK
         room_ids = [r['id'] for r in res.data['results']] if 'results' in res.data else [r['id'] for r in res.data]
         assert str(admin_room.id) in room_ids
-        assert str(other_user_room.id) not in room_ids
+        assert str(foreign_room.id) not in room_ids
 

@@ -56,7 +56,7 @@ Feature: Dataroom Internal Collaboration
     And "collab@example.com" is a collaborator in "Project Titan"
     When "collab@example.com" removes themselves from "Project Titan"
     Then "collab@example.com" should no longer be a collaborator in "Project Titan"
-    And "Project Titan" should not appear in "collab@example.com"'s accessible datarooms
+    And "Project Titan" should still appear in "collab@example.com"'s accessible datarooms through org membership
 
   Scenario: Collaborator cannot delete the co-managed dataroom
     Given I am an authenticated user

@@ -57,15 +57,13 @@ logger = logging.getLogger(__name__)
 
 def get_dataroom_queryset_for_user(user):
     """
-    Returns the queryset of datarooms accessible to a given user:
-    - If user is an org admin: all datarooms in their organization.
-    - Otherwise: datarooms created by the user OR where the user is a collaborator.
+    Returns the queryset of datarooms visible to a given user:
+    - every dataroom of the user's organization (org membership is the default path),
+    - datarooms the user created,
+    - datarooms where the user is a collaborator (guests from other orgs).
     """
-    if getattr(user, 'role', '') == 'admin':
-        return Dataroom.objects.filter(organization=user.organization)
     return Dataroom.objects.filter(
-        Q(created_by=user) | Q(collaborators__user=user),
-        organization=user.organization
+        Q(organization=user.organization) | Q(created_by=user) | Q(collaborators__user=user)
     ).distinct()
 
 
@@ -97,19 +95,11 @@ class DataroomViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Returns datarooms accessible to the requesting user, with optional scope filtering.
-        In the standard user workspace list, both admins and members see only rooms they
-        participate in (created_by or collaborator). Enterprise governance is handled via
-        /api/v1/admin/datarooms/.
+        Returns datarooms visible to the requesting user (see get_dataroom_queryset_for_user),
+        with optional scope filtering.
         """
         user = self.request.user
-        if self.action != 'list' and getattr(user, 'role', '') == 'admin':
-            qs = Dataroom.objects.filter(organization=user.organization)
-        else:
-            qs = Dataroom.objects.filter(
-                Q(created_by=user) | Q(collaborators__user=user),
-                organization=user.organization
-            ).distinct()
+        qs = get_dataroom_queryset_for_user(user)
 
         scope = self.request.query_params.get('scope')
         if scope == 'created_by_me':
@@ -117,6 +107,16 @@ class DataroomViewSet(viewsets.ModelViewSet):
         elif scope == 'shared_with_me':
             qs = qs.filter(collaborators__user=user)
         return qs.select_related('created_by').prefetch_related('collaborators', 'collaborators__user').order_by('-created_at', '-id')
+
+    def create(self, request, *args, **kwargs):
+        # One dataroom per organization. App-level check only: existing data may
+        # already hold several rooms per org, so there is no DB constraint.
+        if Dataroom.objects.filter(organization=request.user.organization).exists():
+            return Response(
+                {"detail": "Your organization already has a dataroom. Only one dataroom per organization is allowed."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         """

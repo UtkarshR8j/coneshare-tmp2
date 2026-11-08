@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.utils.text import get_valid_filename
 from rest_framework import status
 
+from core.models import Organization
 from datarooms.models import Dataroom, DataroomDocument, DataroomFolder, DataroomItemOrder
 from documents.models import (Document, DocumentPage, DocumentVersion)
 from documents.renderers.base import BasePreviewRenderer
@@ -1840,7 +1841,8 @@ class TestShareLinkViewSet:
 
     def test_bulk_update_dataroom_settings_for_other_user_link_fails(self, api_client, user, user2, organization, document):
         """
-        Test that a user cannot update settings for a share link they do not own.
+        Test that a user cannot update settings for a share link they do not own. The room is
+        visible to every org member, so this is a 403 rather than a 404.
         """
         other_dataroom = Dataroom.objects.create(name="Other Dataroom", organization=organization, created_by=user2)
         DataroomDocument.objects.create(dataroom=other_dataroom, document=document)
@@ -1852,7 +1854,9 @@ class TestShareLinkViewSet:
         url = f'/api/v1/share-links/{link_by_user2.id}/dataroom-settings/'
         response = api_client.patch(url, [{'id': str(setting.id), 'is_visible': False}], format='json')
 
-        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        setting.refresh_from_db()
+        assert setting.is_visible is True
 
     def test_bulk_update_dataroom_settings_is_atomic(self, api_client, dataroom, document, user):
         """
@@ -3435,14 +3439,19 @@ class TestDataroomFolderDownloadView:
         assert response.data['name'] == 'Admin System Link'
 
     def test_removed_dataroom_collaborator_cannot_view_update_or_delete_dataroom_share_link(
-        self, api_client, user, user2, dataroom
+        self, api_client, user, dataroom
     ):
         """
-        Test that when a collaborator who created a dataroom share link is removed from that dataroom,
-        they immediately lose all read/update/delete/settings access to that share link,
-        while the dataroom owner retains full control.
+        Test that when a guest collaborator (from another org) who created a dataroom share link is
+        removed from that dataroom, they immediately lose all read/update/delete/settings access to
+        that share link, while the dataroom owner retains full control. Same-org members keep
+        seeing the room through org membership, so the guest path is the one that can be revoked.
         """
         from datarooms.models import DataroomCollaborator
+        guest_org = Organization.objects.create(name="Guest Org")
+        user2 = User.objects.create_user(
+            username="guest@other.com", email="guest@other.com", password="password", organization=guest_org,
+        )
         # Add user2 as collaborator
         collab = DataroomCollaborator.objects.create(dataroom=dataroom, user=user2, invited_by=user)
 

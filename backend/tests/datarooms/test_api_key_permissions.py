@@ -44,11 +44,11 @@ def test_read_only_api_key_perm_on_datarooms(user):
 @pytest.mark.django_db
 def test_read_write_api_key_perm_on_datarooms(user):
     client = _create_client_with_api_key(user, 'read_write')
-    dataroom = Dataroom.objects.create(name='Test Room', created_by=user, organization=user.organization)
 
-    # 1. POST -> Allowed (201)
+    # 1. POST -> Allowed (201). Done first: an org can only hold one dataroom.
     create_resp = client.post(reverse('dataroom-list'), {'name': 'New Write Room'}, format='json')
     assert create_resp.status_code == status.HTTP_201_CREATED
+    dataroom = Dataroom.objects.get(id=create_resp.data['id'])
 
     # 2. DELETE -> Blocked (403)
     delete_resp = client.delete(reverse('dataroom-detail', args=[dataroom.id]))
