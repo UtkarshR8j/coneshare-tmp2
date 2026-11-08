@@ -86,6 +86,9 @@ class Organization(BaseModel):
         blank=True,
         validators=[validate_branding_extras]
     )
+    # OpenCloud space ids (as listed by the assets browser) owned by this org.
+    # Empty means the org can browse and add no assets (fail closed).
+    oc_space_ids = models.JSONField(default=list, blank=True)
 
     def __str__(self):
         return self.name

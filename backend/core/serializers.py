@@ -62,6 +62,22 @@ class OrganizationSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+class AdminOrganizationSerializer(OrganizationSerializer):
+    """Admin-only view of the organization, adding the OpenCloud space binding."""
+    # Same shape as the ids the assets browser lists, e.g. "projects:abc123".
+    oc_space_ids = serializers.ListField(
+        child=serializers.RegexField(r'^(users|projects):[A-Za-z0-9][A-Za-z0-9._-]*$', max_length=255),
+        required=False,
+        allow_empty=True,
+    )
+
+    class Meta(OrganizationSerializer.Meta):
+        fields = OrganizationSerializer.Meta.fields + ['oc_space_ids']
+
+    def validate_oc_space_ids(self, value):
+        return list(dict.fromkeys(value))
+
+
 class UserGroupSerializer(serializers.ModelSerializer):
     """Serializer for the UserGroup model."""
 

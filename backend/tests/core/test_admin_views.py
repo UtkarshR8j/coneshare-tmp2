@@ -710,3 +710,33 @@ class TestAdminUserExport:
 
 
 
+
+
+@pytest.mark.django_db
+class TestAdminOrganizationSpaceBinding:
+    url = '/api/v1/admin/organization/'
+
+    def test_admin_reads_and_updates_oc_space_ids(self, admin_api_client, admin_user):
+        assert admin_api_client.get(self.url).data['oc_space_ids'] == []
+
+        response = admin_api_client.patch(
+            self.url, {'oc_space_ids': ['projects:abc123', 'users:u-1', 'projects:abc123']}, format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['oc_space_ids'] == ['projects:abc123', 'users:u-1']
+        admin_user.organization.refresh_from_db()
+        assert admin_user.organization.oc_space_ids == ['projects:abc123', 'users:u-1']
+
+    @pytest.mark.parametrize('bad', ['projects:abc', ['../etc'], ['projects:'], ['shares:abc']])
+    def test_rejects_malformed_space_ids(self, admin_api_client, admin_user, bad):
+        response = admin_api_client.patch(self.url, {'oc_space_ids': bad}, format='json')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        admin_user.organization.refresh_from_db()
+        assert admin_user.organization.oc_space_ids == []
+
+    def test_non_admin_cannot_read_or_update(self, api_client, user):
+        assert api_client.get(self.url).status_code == status.HTTP_403_FORBIDDEN
+        assert api_client.patch(self.url, {'oc_space_ids': ['projects:x']}, format='json').status_code == status.HTTP_403_FORBIDDEN
+        user.organization.refresh_from_db()
+        assert user.organization.oc_space_ids == []

@@ -30,7 +30,7 @@ from .models import AppConfiguration, LoginActivity, Organization
 from .settings_registry import (DEFAULT_SETTINGS, coerce_to_typed_value,
                                 deserialize_db_value, serialize_typed_to_db_value)
 from .serializers import (AdminResetPasswordSerializer, AppConfigurationSerializer, LoginActivitySerializer,
-                          UserSerializer, OrganizationSerializer)
+                          UserSerializer, AdminOrganizationSerializer)
 
 User = get_user_model()
 
@@ -522,19 +522,19 @@ class AdminOrganizationView(APIView):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     @extend_schema(
-        request=OrganizationSerializer,
-        responses={200: OrganizationSerializer},
+        request=AdminOrganizationSerializer,
+        responses={200: AdminOrganizationSerializer},
     )
     def get(self, request):
-        serializer = OrganizationSerializer(request.user.organization, context={'request': request})
+        serializer = AdminOrganizationSerializer(request.user.organization, context={'request': request})
         return Response(serializer.data)
 
     @extend_schema(
-        request=OrganizationSerializer,
-        responses={200: OrganizationSerializer},
+        request=AdminOrganizationSerializer,
+        responses={200: AdminOrganizationSerializer},
     )
     def patch(self, request):
-        serializer = OrganizationSerializer(
+        serializer = AdminOrganizationSerializer(
             request.user.organization,
             data=request.data,
             partial=True,
