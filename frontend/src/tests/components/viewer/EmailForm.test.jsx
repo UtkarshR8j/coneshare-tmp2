@@ -174,4 +174,21 @@ describe('EmailForm', () => {
     expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
   });
+
+  it('shows the audience rejection inline on a 403 and does not grant access', async () => {
+    api.requestShareLinkAccess.mockRejectedValue({
+      response: { status: 403, data: { message: 'This link is restricted to specific recipients.' } },
+    });
+
+    renderComponent();
+
+    fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: 'outsider@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('This link is restricted to specific recipients.');
+    expect(mockOnSuccess).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: 'other@example.com' } });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
 });

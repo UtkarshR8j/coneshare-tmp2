@@ -133,7 +133,18 @@
     "qnaSubtitle": "允许访问者通过此链接提问。",
     "qnaDisabledForDataroom": "此资料室已禁用问答。",
     "linkCreated": "链接创建成功。",
-    "linkUpdated": "链接更新成功。"
+    "linkUpdated": "链接更新成功。",
+    "audience": "受众",
+    "audienceSubtitle": "谁可以打开此链接。受限受众始终需要提供邮箱。",
+    "audienceAnyone": "任何拥有链接的人",
+    "audienceOrg": "组织成员",
+    "audienceCollaborators": "数据室协作者",
+    "audienceAllowlist": "邮箱白名单",
+    "audienceEmails": "允许的邮箱",
+    "audienceEmailsPlaceholder": "alice@example.com\nbob@example.com",
+    "audienceEmailsHint": "每行一个邮箱，或用逗号分隔。",
+    "audienceEmailsRequired": "白名单链接至少需要添加一个邮箱地址。",
+    "requireEmailForcedByAudience": "此链接仅限特定受众访问，因此必须提供邮箱。"
   },
   "qna": {
     "title": "问答",
@@ -1091,6 +1102,7 @@
     "ndaAccepted": "已成功接受保密协议。",
     "linkNoEmailRequired": "此链接不需要邮箱地址。",
     "linkTargetMissing": "发生意外错误：链接目标丢失。",
+    "linkAudienceRestricted": "此链接仅限特定收件人访问。",
     "accessGranted": "已授予访问权限。",
     "verificationEmailFailed": "无法发送验证邮件。请稍后再试。",
     "verificationEmailSent": "验证链接已发送。请检查您的邮箱以继续。",

@@ -134,7 +134,18 @@
     "qnaSubtitle": "Permettre aux visiteurs de poser des questions via ce lien.",
     "qnaDisabledForDataroom": "Les Q&R sont désactivées pour cette dataroom.",
     "linkCreated": "Lien créé avec succès.",
-    "linkUpdated": "Lien mis à jour avec succès."
+    "linkUpdated": "Lien mis à jour avec succès.",
+    "audience": "Audience",
+    "audienceSubtitle": "Qui peut ouvrir ce lien. Les audiences restreintes exigent toujours un e-mail.",
+    "audienceAnyone": "Toute personne disposant du lien",
+    "audienceOrg": "Membres de l'organisation",
+    "audienceCollaborators": "Collaborateurs de la salle",
+    "audienceAllowlist": "Liste d'e-mails autorisés",
+    "audienceEmails": "E-mails autorisés",
+    "audienceEmailsPlaceholder": "alice@example.com\nbob@example.com",
+    "audienceEmailsHint": "Un e-mail par ligne, ou séparés par des virgules.",
+    "audienceEmailsRequired": "Ajoutez au moins une adresse e-mail pour un lien avec liste autorisée.",
+    "requireEmailForcedByAudience": "Obligatoire car ce lien est réservé à une audience spécifique."
   },
   "qna": {
     "title": "Q&R",
@@ -1248,6 +1259,7 @@
     "ndaAccepted": "Accord de confidentialité accepté avec succès.",
     "linkNoEmailRequired": "Ce lien ne requiert pas d'adresse e-mail.",
     "linkTargetMissing": "Une erreur inattendue est survenue : la cible du lien est manquante.",
+    "linkAudienceRestricted": "Ce lien est réservé à des destinataires spécifiques.",
     "accessGranted": "Accès autorisé.",
     "verificationEmailFailed": "Impossible d'envoyer l'e-mail de vérification. Veuillez réessayer ultérieurement.",
     "verificationEmailSent": "Lien de vérification envoyé. Veuillez vérifier vos e-mails pour continuer.",

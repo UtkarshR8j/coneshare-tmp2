@@ -136,7 +136,18 @@
     "qnaSubtitle": "Разрешить посетителям задавать вопросы по этой ссылке.",
     "qnaDisabledForDataroom": "Вопросы и ответы отключены для этой комнаты данных.",
     "linkCreated": "Ссылка успешно создана.",
-    "linkUpdated": "Ссылка успешно обновлена."
+    "linkUpdated": "Ссылка успешно обновлена.",
+    "audience": "Аудитория",
+    "audienceSubtitle": "Кто может открыть эту ссылку. Для ограниченной аудитории всегда требуется email.",
+    "audienceAnyone": "Все, у кого есть ссылка",
+    "audienceOrg": "Участники организации",
+    "audienceCollaborators": "Соавторы комнаты данных",
+    "audienceAllowlist": "Список разрешенных email",
+    "audienceEmails": "Разрешенные email",
+    "audienceEmailsPlaceholder": "alice@example.com\nbob@example.com",
+    "audienceEmailsHint": "Один email на строку или через запятую.",
+    "audienceEmailsRequired": "Добавьте хотя бы один email для ссылки со списком разрешенных адресов.",
+    "requireEmailForcedByAudience": "Обязательно, так как ссылка ограничена определенной аудиторией."
   },
   "qna": {
     "title": "Вопросы и ответы",
@@ -1115,6 +1126,7 @@
     "ndaAccepted": "NDA успешно принято.",
     "linkNoEmailRequired": "Для этой ссылки не требуется email.",
     "linkTargetMissing": "Произошла непредвиденная ошибка: целевой объект ссылки отсутствует.",
+    "linkAudienceRestricted": "Доступ по этой ссылке ограничен определенными получателями.",
     "accessGranted": "Доступ предоставлен.",
     "verificationEmailFailed": "Не удалось отправить письмо для подтверждения. Попробуйте позже.",
     "verificationEmailSent": "Ссылка для подтверждения отправлена. Проверьте почту.",

@@ -8,6 +8,8 @@ import {
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
+import { Select } from '../ui/Select';
+import { Textarea } from '../ui/Textarea';
 import {
   Sheet,
   SheetContent,
@@ -18,6 +20,17 @@ import {
 } from '../ui/Sheet';
 import { Switch } from '../ui/Switch';
 import { PasswordInput } from '../ui/PasswordInput';
+
+const AUDIENCE_MODES = ['anyone', 'org', 'collaborators', 'allowlist'];
+
+// Accepts emails separated by commas, semicolons, or whitespace; returns a lowercase de-duplicated list.
+function parseAudienceEmails(text) {
+  const emails = (text || '')
+    .split(/[\s,;]+/)
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return [...new Set(emails)];
+}
 
 export function LinkSheet({
   isOpen,
@@ -43,10 +56,14 @@ export function LinkSheet({
   const [isSaving, setIsSaving] = useState(false);
   const [requireNda, setRequireNda] = useState(false);
   const [ndaText, setNdaText] = useState('');
+  const [audienceMode, setAudienceMode] = useState('anyone');
+  const [audienceEmailsText, setAudienceEmailsText] = useState('');
 
   const isEditing = !!currentLink;
   const isWatermarkable = ['pdf', 'document', 'image'].includes(document?.type) || !!dataroom;
   const isQnaAvailable = dataroom ? dataroom.enable_qna !== false : true;
+  // A restricted audience is checked on the email form, so it always requires an email.
+  const isAudienceRestricted = audienceMode !== 'anyone';
     
   useEffect(() => {
     if (isOpen) {
@@ -75,6 +92,8 @@ export function LinkSheet({
         setWatermarkText(currentLink.watermark_text || '');
         setRequireNda(currentLink.require_nda || false);
         setNdaText(currentLink.nda_text || '');
+        setAudienceMode(AUDIENCE_MODES.includes(currentLink.audience_mode) ? currentLink.audience_mode : 'anyone');
+        setAudienceEmailsText((currentLink.audience_emails || []).join('\n'));
       } else {
         setName('');
         setRequiresEmail(false);
@@ -90,6 +109,8 @@ export function LinkSheet({
         setWatermarkText('');
         setRequireNda(false);
         setNdaText('');
+        setAudienceMode('anyone');
+        setAudienceEmailsText('');
       }
     }
 
@@ -100,12 +121,22 @@ export function LinkSheet({
     
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const audienceEmails = audienceMode === 'allowlist' ? parseAudienceEmails(audienceEmailsText) : [];
+    if (audienceMode === 'allowlist' && audienceEmails.length === 0) {
+      toast.error(t('linkSheet.audienceEmailsRequired'));
+      return;
+    }
+
     setIsSaving(true);
-    
+
+    const effectiveRequiresEmail = requiresEmail || isAudienceRestricted;
     const linkData = {
       name,
-      requires_email: requiresEmail,
-      requires_email_verification: requiresEmail && requiresEmailVerification,
+      requires_email: effectiveRequiresEmail,
+      requires_email_verification: effectiveRequiresEmail && requiresEmailVerification,
+      audience_mode: audienceMode,
+      audience_emails: audienceEmails,
       receive_email_notification: receiveEmailNotification,
       allow_download: allowDownload,
       enable_watermark: isWatermarkable && enableWatermark,
@@ -176,16 +207,62 @@ export function LinkSheet({
           </div>
 
           <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="audience-mode" className="flex flex-col space-y-1">
+                <span>{t('linkSheet.audience')}</span>
+                <span className="text-sm font-normal text-muted-foreground">
+                  {t('linkSheet.audienceSubtitle')}
+                </span>
+              </Label>
+              <Select
+                id="audience-mode"
+                className="w-56 shrink-0"
+                value={audienceMode}
+                onChange={(e) => {
+                  const mode = e.target.value;
+                  setAudienceMode(mode);
+                  if (mode !== 'anyone') {
+                    setRequiresEmail(true);
+                  }
+                }}
+              >
+                <option value="anyone">{t('linkSheet.audienceAnyone')}</option>
+                <option value="org">{t('linkSheet.audienceOrg')}</option>
+                <option value="collaborators">{t('linkSheet.audienceCollaborators')}</option>
+                <option value="allowlist">{t('linkSheet.audienceAllowlist')}</option>
+              </Select>
+            </div>
+            {audienceMode === 'allowlist' && (
+              <div className="space-y-2 rounded-md border bg-gray-50 p-4 dark:bg-gray-800/50">
+                <Label htmlFor="audience-emails">{t('linkSheet.audienceEmails')}</Label>
+                <Textarea
+                  id="audience-emails"
+                  rows={4}
+                  value={audienceEmailsText}
+                  onChange={(e) => setAudienceEmailsText(e.target.value)}
+                  placeholder={t('linkSheet.audienceEmailsPlaceholder')}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t('linkSheet.audienceEmailsHint')}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label htmlFor="require-email" className="flex flex-col space-y-1">
                 <span>{t('linkSheet.requireEmail')}</span>
                 <span className="text-sm font-normal text-muted-foreground">
-                  {t('linkSheet.requireEmailSubtitle')}
+                  {isAudienceRestricted
+                    ? t('linkSheet.requireEmailForcedByAudience')
+                    : t('linkSheet.requireEmailSubtitle')}
                 </span>
               </Label>
               <Switch
                 id="require-email"
-                checked={requiresEmail}
+                checked={requiresEmail || isAudienceRestricted}
+                disabled={isAudienceRestricted}
                 onCheckedChange={(checked) => {
                   setRequiresEmail(checked);
                   if (!checked) {
@@ -195,7 +272,7 @@ export function LinkSheet({
                 }}
               />
             </div>
-            {requiresEmail && (
+            {(requiresEmail || isAudienceRestricted) && (
               <div className="flex items-center justify-between rounded-md border bg-gray-50 p-4 dark:bg-gray-800/50">
                 <Label htmlFor="verify-email" className="flex flex-col space-y-1">
                   <span>{t('linkSheet.verifyEmail')}</span>

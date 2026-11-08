@@ -31,6 +31,8 @@ const ERROR_STRING_MAPPINGS = {
     "errors.linkNoEmailRequired",
   "An unexpected error occurred: link target is missing.":
     "errors.linkTargetMissing",
+  "This link is restricted to specific recipients.":
+    "errors.linkAudienceRestricted",
   "Access granted.":
     "errors.accessGranted",
   "Could not send verification email. Please try again later.":

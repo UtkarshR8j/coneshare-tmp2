@@ -134,7 +134,18 @@
     "qnaSubtitle": "Let viewers ask questions through this link.",
     "qnaDisabledForDataroom": "Q&A is disabled for this dataroom.",
     "linkCreated": "Link created successfully.",
-    "linkUpdated": "Link updated successfully."
+    "linkUpdated": "Link updated successfully.",
+    "audience": "Audience",
+    "audienceSubtitle": "Who can open this link. Restricted audiences always require an email.",
+    "audienceAnyone": "Anyone with the link",
+    "audienceOrg": "Organization members",
+    "audienceCollaborators": "Room collaborators",
+    "audienceAllowlist": "Email allowlist",
+    "audienceEmails": "Allowed emails",
+    "audienceEmailsPlaceholder": "alice@example.com\nbob@example.com",
+    "audienceEmailsHint": "One email per line, or separated by commas.",
+    "audienceEmailsRequired": "Add at least one email address for an allowlist link.",
+    "requireEmailForcedByAudience": "Required because this link is restricted to a specific audience."
   },
   "qna": {
     "title": "Q&A",
@@ -1104,6 +1115,7 @@
     "ndaAccepted": "NDA accepted successfully.",
     "linkNoEmailRequired": "This link does not require an email address.",
     "linkTargetMissing": "An unexpected error occurred: link target is missing.",
+    "linkAudienceRestricted": "This link is restricted to specific recipients.",
     "accessGranted": "Access granted.",
     "verificationEmailFailed": "Could not send verification email. Please try again later.",
     "verificationEmailSent": "Verification link sent. Please check your email to continue.",

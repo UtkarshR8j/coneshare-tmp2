@@ -79,11 +79,13 @@ export function EmailForm({
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [localRequiresConfirmation, setLocalRequiresConfirmation] = useState(requiresConfirmation);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMessage('');
 
     try {
       const response = await requestShareLinkAccess(slug, email);
@@ -95,7 +97,11 @@ export function EmailForm({
         onSuccess(); // No verification needed, grant access immediately
       }
     } catch (err) {
-      // Error is handled by the global interceptor's toast.
+      // Error is handled by the global interceptor's toast. An audience rejection (403)
+      // is also shown inline so the viewer sees why they cannot continue.
+      if (err?.response?.status === 403) {
+        setErrorMessage(getLocalizedErrorMessage(err));
+      }
       setIsLoading(false);
     }
   };
@@ -191,12 +197,20 @@ export function EmailForm({
                 type="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setErrorMessage('');
+                }}
                 className="pl-10"
                 placeholder="you@company.com"
                 autoFocus
               />
             </div>
+            {errorMessage && (
+              <p role="alert" className="text-sm text-red-600">
+                {errorMessage}
+              </p>
+            )}
           </div>
 
           <div className="pt-2">

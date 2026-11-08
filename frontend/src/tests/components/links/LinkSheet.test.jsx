@@ -24,6 +24,7 @@ vi.mock('../../../services/api', () => ({
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
+    error: vi.fn(),
   },
 }));
 
@@ -247,6 +248,82 @@ describe('LinkSheet', () => {
       expect(api.updateShareLink).toHaveBeenCalledWith('link_qna', expect.objectContaining({
         enable_qna: false,
       }));
+    });
+  });
+
+  describe('Audience', () => {
+    it('defaults to anyone and sends an empty email list', async () => {
+      api.createShareLink.mockResolvedValue({});
+      renderComponent();
+
+      expect(screen.getByLabelText(/Audience/)).toHaveValue('anyone');
+      expect(screen.queryByLabelText('Allowed emails')).not.toBeInTheDocument();
+      await userEvent.click(screen.getByText('Save Changes'));
+
+      expect(api.createShareLink).toHaveBeenCalledWith(expect.objectContaining({
+        audience_mode: 'anyone',
+        audience_emails: [],
+        requires_email: false,
+      }));
+    });
+
+    it('forces require-email for a restricted audience', async () => {
+      api.createShareLink.mockResolvedValue({});
+      renderComponent();
+
+      await userEvent.selectOptions(screen.getByLabelText(/Audience/), 'org');
+      expect(screen.getByLabelText(/Require email to view/)).toBeChecked();
+      expect(screen.getByLabelText(/Require email to view/)).toBeDisabled();
+      await userEvent.click(screen.getByText('Save Changes'));
+
+      expect(api.createShareLink).toHaveBeenCalledWith(expect.objectContaining({
+        audience_mode: 'org',
+        audience_emails: [],
+        requires_email: true,
+      }));
+    });
+
+    it('sends a lowercase de-duplicated allowlist', async () => {
+      api.createShareLink.mockResolvedValue({});
+      renderComponent();
+
+      await userEvent.selectOptions(screen.getByLabelText(/Audience/), 'allowlist');
+      await userEvent.click(screen.getByLabelText('Allowed emails'));
+      await userEvent.paste('Alice@Example.com, bob@example.com\nalice@example.com');
+      await userEvent.click(screen.getByText('Save Changes'));
+
+      expect(api.createShareLink).toHaveBeenCalledWith(expect.objectContaining({
+        audience_mode: 'allowlist',
+        audience_emails: ['alice@example.com', 'bob@example.com'],
+        requires_email: true,
+      }));
+    });
+
+    it('blocks saving an allowlist with no emails', async () => {
+      renderComponent();
+
+      await userEvent.selectOptions(screen.getByLabelText(/Audience/), 'allowlist');
+      await userEvent.click(screen.getByText('Save Changes'));
+
+      expect(api.createShareLink).not.toHaveBeenCalled();
+      expect(toast.error).toHaveBeenCalledWith('Add at least one email address for an allowlist link.');
+    });
+
+    it('pre-fills audience settings when editing', () => {
+      renderComponent({
+        currentLink: {
+          id: 'link_aud',
+          name: 'Restricted',
+          allow_download: true,
+          has_password: false,
+          requires_email: true,
+          audience_mode: 'allowlist',
+          audience_emails: ['a@example.com', 'b@example.com'],
+        },
+      });
+
+      expect(screen.getByLabelText(/Audience/)).toHaveValue('allowlist');
+      expect(screen.getByLabelText('Allowed emails')).toHaveValue('a@example.com\nb@example.com');
     });
   });
 });

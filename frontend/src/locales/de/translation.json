@@ -134,7 +134,18 @@
     "qnaSubtitle": "Besuchern erlauben, über diesen Link Fragen zu stellen.",
     "qnaDisabledForDataroom": "Fragen & Antworten sind für diesen Datenraum deaktiviert.",
     "linkCreated": "Link erfolgreich erstellt.",
-    "linkUpdated": "Link erfolgreich aktualisiert."
+    "linkUpdated": "Link erfolgreich aktualisiert.",
+    "audience": "Zielgruppe",
+    "audienceSubtitle": "Wer diesen Link öffnen kann. Eingeschränkte Zielgruppen erfordern immer eine E-Mail.",
+    "audienceAnyone": "Jeder mit dem Link",
+    "audienceOrg": "Mitglieder der Organisation",
+    "audienceCollaborators": "Mitwirkende des Datenraums",
+    "audienceAllowlist": "E-Mail-Freigabeliste",
+    "audienceEmails": "Zugelassene E-Mails",
+    "audienceEmailsPlaceholder": "alice@example.com\nbob@example.com",
+    "audienceEmailsHint": "Eine E-Mail pro Zeile oder durch Kommas getrennt.",
+    "audienceEmailsRequired": "Fügen Sie mindestens eine E-Mail-Adresse für einen Freigabelisten-Link hinzu.",
+    "requireEmailForcedByAudience": "Erforderlich, da dieser Link auf eine bestimmte Zielgruppe beschränkt ist."
   },
   "qna": {
     "title": "Fragen & Antworten",
@@ -1122,6 +1133,7 @@
     "ndaAccepted": "NDA erfolgreich akzeptiert.",
     "linkNoEmailRequired": "Dieser Link erfordert keine E-Mail-Adresse.",
     "linkTargetMissing": "Ein unerwarteter Fehler ist aufgetreten: Link-Ziel fehlt.",
+    "linkAudienceRestricted": "Dieser Link ist auf bestimmte Empfänger beschränkt.",
     "accessGranted": "Zugriff gewährt.",
     "verificationEmailFailed": "Bestätigungs-E-Mail konnte nicht gesendet werden. Bitte versuchen Sie es später erneut.",
     "verificationEmailSent": "Bestätigungslink gesendet. Bitte überprüfen Sie Ihre E-Mails, um fortzufahren.",
