@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+import json
 import os
 import re
 import sys
@@ -254,6 +255,7 @@ INSTALLED_APPS = [
     'filerequests',
     'automations',
     'telemetry',
+    'assetbrowser',
 ]
 
 MIDDLEWARE = [
@@ -265,6 +267,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'documents.upload_lock.DocumentUploadLockMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -566,6 +569,13 @@ CLOUD_IMPORT_FOLDER_MAPPING = {
 
 # Maximum file size in megabytes for cloud imports.
 CLOUD_IMPORT_MAX_SIZE_MB = 100
+
+# One-way assets integration: OpenCloud is the only writer of document bytes.
+DOCUMENT_UPLOADS_DISABLED = os.environ.get('DOCUMENT_UPLOADS_DISABLED', 'false').lower() in ('true', '1', 't')
+ASSETS_PORTAL_URL = os.environ.get('ASSETS_PORTAL_URL', 'https://assets.longstraw.earth')
+ASSETS_RO_ROOT = os.environ.get('ASSETS_RO_ROOT', '')
+ASSETS_SPACE_LABELS = json.loads(os.environ.get('ASSETS_SPACE_LABELS', '{}'))
+ASSETS_MAX_SNAPSHOT_MB = int(os.environ.get('ASSETS_MAX_SNAPSHOT_MB', '2048'))
 
 # Dropbox API Credentials
 # Get these from your Dropbox App Console.

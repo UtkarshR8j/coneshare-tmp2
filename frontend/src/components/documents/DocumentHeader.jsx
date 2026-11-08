@@ -178,7 +178,7 @@ export function DocumentHeader({
             </TooltipContent>
           </Tooltip>
 
-          {canManage && document.cloud_import && (
+          {canManage && document.cloud_import && onRefreshFromCloud && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>
@@ -200,7 +200,7 @@ export function DocumentHeader({
             </Tooltip>
           )}
 
-          {canManage && (
+          {canManage && onUploadNewVersion && (
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>

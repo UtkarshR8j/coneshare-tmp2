@@ -1045,6 +1045,27 @@
     "loadConnectionsFailed": "加载已关联存储账号失败。",
     "loadFoldersFailed": "加载文件夹失败，请重试。"
   },
+  "assetsBrowser": {
+    "openButton": "Add from Assets",
+    "title": "Add from Assets",
+    "description": "Files live on assets.longstraw. Adding copies a snapshot into this dataroom. Later edits on assets do not change it. Files are visible on this room's existing links right away.",
+    "space": "Space",
+    "root": "Root",
+    "searchPlaceholder": "Search all spaces by file name",
+    "empty": "Nothing here.",
+    "truncated": "Too many matches. Showing the first results, so refine your search.",
+    "failedToLoad": "Could not load files from Assets.",
+    "copying": "Copying...",
+    "preview": "Preview",
+    "addSelected_one": "Add {{count}} file",
+    "addSelected_other": "Add {{count}} files",
+    "added_one": "{{count}} file added.",
+    "added_other": "{{count}} files added.",
+    "someFailed_one": "{{count}} file could not be added: {{reason}}",
+    "someFailed_other": "{{count}} files could not be added. First error: {{reason}}",
+    "stillCopying": "Still copying in the background. Refresh in a moment.",
+    "uploadsMoved": "Upload files on assets.longstraw, then add them here."
+  },
   "cloudImport": {
     "title": "从 {{provider}} 导入",
     "browsing": "当前浏览：{{path}}",

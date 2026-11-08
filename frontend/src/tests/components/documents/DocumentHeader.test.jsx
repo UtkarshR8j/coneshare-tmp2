@@ -39,6 +39,18 @@ describe('DocumentHeader', () => {
     );
   };
 
+  it('hides the version upload and cloud refresh controls when their handlers are absent', () => {
+    const cloudDoc = { ...mockDoc, cloud_import: { provider_display: 'Dropbox' } };
+    const { unmount } = renderComponent({ document: cloudDoc, canManage: true });
+    expect(screen.getAllByText(/upload new version/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/refresh from/i).length).toBeGreaterThan(0);
+    unmount();
+
+    renderComponent({ document: cloudDoc, canManage: true, onUploadNewVersion: undefined, onRefreshFromCloud: undefined });
+    expect(screen.queryByText(/upload new version/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/refresh from/i)).not.toBeInTheDocument();
+  });
+
   it('renders document name, uploader details, and updated time', () => {
     renderComponent();
     expect(screen.getByText('Sample Document.pdf')).toBeInTheDocument();
