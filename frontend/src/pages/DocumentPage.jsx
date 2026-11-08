@@ -26,6 +26,7 @@ export function DocumentPage() {
   const userContext = useUser();
   const user = userContext?.user;
   const refreshUser = userContext?.refreshUser;
+  const uploadsEnabled = user?.document_uploads_enabled !== false;
   const navigate = useNavigate();
   const [document, setDocument] = useState(null);
   const [stats, setStats] = useState(null);
@@ -477,9 +478,9 @@ export function DocumentPage() {
         document={document}
         onCreateLink={handleCreateLink}
         onPreview={handlePreview}
-        onUploadNewVersion={handleUploadNewVersionClick}
+        onUploadNewVersion={uploadsEnabled ? handleUploadNewVersionClick : undefined}
         onImportVersionFromCloud={handleCloudProviderClick}
-        onRefreshFromCloud={handleRefreshFromCloud}
+        onRefreshFromCloud={uploadsEnabled ? handleRefreshFromCloud : undefined}
         onDownload={handleDownload}
         onVersionHistory={() => navigate(`/documents/${documentId}/versions`)}
         onDelete={handleDelete}

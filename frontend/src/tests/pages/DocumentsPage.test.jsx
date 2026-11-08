@@ -486,6 +486,19 @@ describe('DocumentsPage', () => {
     });
   });
 
+  describe('Upload lock', () => {
+    it('hides the upload menu when document uploads are disabled', () => {
+      useUser.mockReturnValue({ user: { document_uploads_enabled: false }, refreshUser: vi.fn() });
+      renderComponent();
+      expect(screen.queryByTitle('Upload')).not.toBeInTheDocument();
+    });
+
+    it('shows the upload menu by default', () => {
+      renderComponent();
+      expect(screen.getByTitle('Upload')).toBeInTheDocument();
+    });
+  });
+
   describe('Upload Limits', () => {
     beforeEach(() => {
       // Set a strict limit for these tests

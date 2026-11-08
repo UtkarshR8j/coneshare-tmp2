@@ -246,3 +246,13 @@ def test_public_settings_branding(api_client, organization):
     assert response.data['terms_url'] == "https://publicbrandtest.com/terms"
     assert response.data['privacy_policy_url'] == "https://publicbrandtest.com/privacy"
     assert 'brand_logo_url' in response.data
+
+
+@pytest.mark.django_db
+def test_user_serializer_reports_upload_and_assets_flags(admin_user, user, settings, tmp_path):
+    from core.serializers import UserSerializer
+    settings.DOCUMENT_UPLOADS_DISABLED = True
+    settings.ASSETS_RO_ROOT = str(tmp_path)
+    assert UserSerializer(admin_user).data['document_uploads_enabled'] is False
+    assert UserSerializer(admin_user).data['assets_browser_enabled'] is True
+    assert UserSerializer(user).data['assets_browser_enabled'] is False

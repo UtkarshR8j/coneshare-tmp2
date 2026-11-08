@@ -75,6 +75,8 @@ class UserSerializer(serializers.ModelSerializer):
     avatar_url = serializers.SerializerMethodField()
     file_size_quota_mb = serializers.SerializerMethodField()
     max_files_per_upload = serializers.SerializerMethodField()
+    document_uploads_enabled = serializers.SerializerMethodField()
+    assets_browser_enabled = serializers.SerializerMethodField()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -87,18 +89,24 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'email', 'name', 'role', 'organization', 'password',
             'avatar', 'avatar_url', 'language', 'date_joined', 'updated_at',
             'total_document_size', 'file_size_quota_mb', 'custom_file_size_quota_mb', 'max_files_per_upload',
-            'is_superuser', 'is_active'
+            'is_superuser', 'is_active', 'document_uploads_enabled', 'assets_browser_enabled'
         ]
         read_only_fields = [
             'id', 'organization', 'date_joined', 'updated_at', 'avatar_url',
             'total_document_size', 'file_size_quota_mb', 'max_files_per_upload',
-            'is_superuser'
+            'is_superuser', 'document_uploads_enabled', 'assets_browser_enabled'
         ]
         extra_kwargs = {
             'password': {'write_only': True, 'required': False},
             'avatar': {'write_only': True, 'required': False}
         }
 
+
+    def get_document_uploads_enabled(self, obj) -> bool:
+        return not settings.DOCUMENT_UPLOADS_DISABLED
+
+    def get_assets_browser_enabled(self, obj) -> bool:
+        return obj.role == 'admin' and bool(settings.ASSETS_RO_ROOT)
 
     @extend_schema_field(serializers.URLField(allow_null=True))
     def get_avatar_url(self, obj) -> str:

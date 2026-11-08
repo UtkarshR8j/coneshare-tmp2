@@ -129,6 +129,21 @@ describe('DocumentPage', () => {
     expect(screen.getByRole('button', { name: /next page/i })).toBeDisabled();
   });
 
+  it('does not wire the version upload handler when document uploads are disabled', async () => {
+    mockCurrentUser = { id: 'u1', role: 'user', document_uploads_enabled: false };
+    api.getDocumentDetails.mockResolvedValue({ data: mockDocument });
+    api.getDocumentStats.mockResolvedValue({ data: mockStats });
+    api.getDocumentViews.mockResolvedValue({ data: mockViewsPage1 });
+
+    const { container } = renderComponent();
+    await screen.findByText('Document Header');
+
+    const clickSpy = vi.spyOn(container.querySelector('input[type="file"]'), 'click').mockImplementation(() => {});
+    fireEvent.click(screen.getByRole('button', { name: /upload new version/i }));
+
+    expect(clickSpy).not.toHaveBeenCalled();
+  });
+
   describe('Upload New Version', () => {
     beforeEach(() => {
       // Setup mocks for each test in this suite

@@ -33,11 +33,17 @@ vi.mock('../../contexts/UploadProvider', () => ({
     }),
 }));
 
+const mockUserState = vi.hoisted(() => ({ extra: {} }));
+
 vi.mock('../../contexts/UserProvider', () => ({
     useUser: () => ({
-        user: { id: 'u1', email: 'test@example.com', max_files_per_upload: 100 },
+        user: { id: 'u1', email: 'test@example.com', max_files_per_upload: 100, ...mockUserState.extra },
         refreshUser: vi.fn(),
     }),
+}));
+
+vi.mock('../../components/dialogs/AssetsBrowserDialog', () => ({
+    AssetsBrowserDialog: ({ isOpen }) => (isOpen ? <div data-testid="mock-assets-browser-dialog" /> : null),
 }));
 
 let globalSearchParams = new URLSearchParams();
@@ -116,6 +122,7 @@ describe('DataroomPage', () => {
 
     beforeEach(() => {
         vi.resetAllMocks();
+        mockUserState.extra = {};
         globalSearchParams = new URLSearchParams();
         listeners.clear();
         api.getDataroom.mockResolvedValue({ data: mockDataroomRoot });
@@ -146,6 +153,25 @@ describe('DataroomPage', () => {
         expect(api.getDataroom).toHaveBeenCalledWith('dr123');
         expect(await screen.findByRole('heading', { name: 'Test Dataroom' })).toBeInTheDocument();
         expect(await screen.findByText('Sub Folder')).toBeInTheDocument();
+    });
+
+    describe('Assets browser and upload lock', () => {
+        it('replaces the upload menu with Add from Assets when uploads are disabled', async () => {
+            mockUserState.extra = { document_uploads_enabled: false, assets_browser_enabled: true };
+            const user = userEvent.setup();
+            renderComponent();
+            await screen.findByRole('heading', { name: 'Test Dataroom' });
+            expect(screen.queryByRole('button', { name: 'Upload' })).not.toBeInTheDocument();
+            await user.click(screen.getByRole('button', { name: 'Add from Assets' }));
+            expect(screen.getByTestId('mock-assets-browser-dialog')).toBeInTheDocument();
+        });
+
+        it('keeps the upload menu and hides Add from Assets when the flags are absent', async () => {
+            renderComponent();
+            await screen.findByRole('heading', { name: 'Test Dataroom' });
+            expect(screen.getByRole('button', { name: 'Upload' })).toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Add from Assets' })).not.toBeInTheDocument();
+        });
     });
 
     describe('Error and Empty States', () => {
