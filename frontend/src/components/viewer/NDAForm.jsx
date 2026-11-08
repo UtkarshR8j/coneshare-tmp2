@@ -8,6 +8,7 @@ import { Button } from '../ui/Button';
 import { AccessOwnerCard } from './AccessOwnerCard';
 import { useBranding } from '../../contexts/BrandingProvider';
 import { LanguagePicker } from '../common/LanguagePicker';
+import { ABOUT_URL, TERMS_URL, PRIVACY_URL } from "../../utils/legalLinks";
 
 export function NDAForm({ slug, onSuccess, publicMeta = null }) {
   const { t } = useTranslation();
@@ -106,7 +107,7 @@ export function NDAForm({ slug, onSuccess, publicMeta = null }) {
       <div className="mt-6 flex flex-col items-center justify-center gap-2 text-xs text-gray-400 dark:text-zinc-500">
         <div className="flex items-center gap-3">
           <a
-            href={brandWebsiteUrl || "https://www.coneshare.com/about"}
+            href={brandWebsiteUrl || ABOUT_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-gray-600 dark:hover:text-zinc-300 transition-colors"
@@ -115,7 +116,7 @@ export function NDAForm({ slug, onSuccess, publicMeta = null }) {
           </a>
           <span className="text-gray-300 dark:text-zinc-800">&bull;</span>
           <a
-            href={termsUrl}
+            href={termsUrl || TERMS_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-gray-600 dark:hover:text-zinc-300 transition-colors"
@@ -124,7 +125,7 @@ export function NDAForm({ slug, onSuccess, publicMeta = null }) {
           </a>
           <span className="text-gray-300 dark:text-zinc-800">&bull;</span>
           <a
-            href={privacyPolicyUrl}
+            href={privacyPolicyUrl || PRIVACY_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-gray-600 dark:hover:text-zinc-300 transition-colors"

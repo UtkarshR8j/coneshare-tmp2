@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { authService } from "../services/authService";
 import { isSafeUrl } from "../lib/utils";
+import { TERMS_URL, PRIVACY_URL } from "../utils/legalLinks";
 
 const BrandingContext = createContext(null);
 
@@ -9,8 +10,8 @@ export function BrandingProvider({ children }) {
     brandName: "Longstraw Carbon",
     brandLogoUrl: "/logo.svg",
     brandWebsiteUrl: "",
-    termsUrl: "https://www.coneshare.com/terms",
-    privacyPolicyUrl: "https://www.coneshare.com/privacy-policy",
+    termsUrl: TERMS_URL,
+    privacyPolicyUrl: PRIVACY_URL,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -25,8 +26,8 @@ export function BrandingProvider({ children }) {
         brandName: data?.brand_name || "Longstraw Carbon",
         brandLogoUrl: data?.brand_logo_url || "/logo.svg",
         brandWebsiteUrl: (websiteUrl && isSafeUrl(websiteUrl)) ? websiteUrl : "",
-        termsUrl: (terms && isSafeUrl(terms)) ? terms : "https://www.coneshare.com/terms",
-        privacyPolicyUrl: (privacy && isSafeUrl(privacy)) ? privacy : "https://www.coneshare.com/privacy-policy",
+        termsUrl: (terms && isSafeUrl(terms)) ? terms : TERMS_URL,
+        privacyPolicyUrl: (privacy && isSafeUrl(privacy)) ? privacy : PRIVACY_URL,
       });
     } catch (error) {
       console.error("Failed to fetch public settings/branding:", error);
@@ -66,8 +67,8 @@ export function useBranding() {
       brandName: "Longstraw Carbon",
       brandLogoUrl: "/logo.svg",
       brandWebsiteUrl: "",
-      termsUrl: "https://www.coneshare.com/terms",
-      privacyPolicyUrl: "https://www.coneshare.com/privacy-policy",
+      termsUrl: TERMS_URL,
+      privacyPolicyUrl: PRIVACY_URL,
       isLoading: false,
       refetchBranding: async () => {},
     };

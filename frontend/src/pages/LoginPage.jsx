@@ -8,6 +8,7 @@ import { Button } from '../components/ui/Button'
 import { useBranding } from '../contexts/BrandingProvider'
 import { LanguagePicker } from '../components/common/LanguagePicker'
 import { SplitBrandLayout } from '../components/auth/SplitBrandLayout'
+import { ABOUT_URL, TERMS_URL, PRIVACY_URL } from "../utils/legalLinks";
 
 function GoogleGlyph() {
   return (
@@ -192,7 +193,7 @@ function LoginPage() {
       <div className="mt-auto pt-8 flex flex-col items-center justify-center gap-2 text-xs text-gray-400">
         <div className="flex items-center gap-3">
           <a
-            href={brandWebsiteUrl || "https://www.coneshare.com/about"}
+            href={brandWebsiteUrl || ABOUT_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-gray-600 transition-colors"
@@ -201,7 +202,7 @@ function LoginPage() {
           </a>
           <span className="text-gray-300">&bull;</span>
           <a
-            href={termsUrl}
+            href={termsUrl || TERMS_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-gray-600 transition-colors"
@@ -210,7 +211,7 @@ function LoginPage() {
           </a>
           <span className="text-gray-300">&bull;</span>
           <a
-            href={privacyPolicyUrl}
+            href={privacyPolicyUrl || PRIVACY_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-gray-600 transition-colors"
