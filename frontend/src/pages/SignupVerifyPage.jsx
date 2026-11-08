@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authService } from '../services/authService'
 import { extractApiErrorMessage } from '../lib/apiErrors'
 import { useBranding } from '../contexts/BrandingProvider'
+import { ABOUT_URL, TERMS_URL, PRIVACY_URL } from "../utils/legalLinks";
 
 export function SignupVerifyPage() {
   const navigate = useNavigate()
@@ -85,7 +86,7 @@ export function SignupVerifyPage() {
         <div className="mt-8 flex flex-col items-center justify-center gap-2 text-xs text-gray-400">
           <div className="flex items-center gap-3">
             <a
-              href={brandWebsiteUrl || "https://www.coneshare.com/about"}
+              href={brandWebsiteUrl || ABOUT_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-gray-600 transition-colors"
@@ -94,7 +95,7 @@ export function SignupVerifyPage() {
             </a>
             <span className="text-gray-300">&bull;</span>
             <a
-              href={termsUrl}
+              href={termsUrl || TERMS_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-gray-600 transition-colors"
@@ -103,7 +104,7 @@ export function SignupVerifyPage() {
             </a>
             <span className="text-gray-300">&bull;</span>
             <a
-              href={privacyPolicyUrl}
+              href={privacyPolicyUrl || PRIVACY_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-gray-600 transition-colors"
