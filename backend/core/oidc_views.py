@@ -162,7 +162,9 @@ class OIDCLoginView(APIView):
             'code_challenge': _b64url(hashlib.sha256(verifier.encode('ascii')).digest()),
             'code_challenge_method': 'S256',
         }
-        response = redirect(f'{settings.OIDC_AUTHORIZE_URL}?{urlencode(params)}')
+        # Google-first: the longstraw.earth button deep-links Dex's Google
+        # connector (/dex/auth/google) so users never see the connector picker.
+        response = redirect(f'{settings.OIDC_AUTHORIZE_URL}/google?{urlencode(params)}')
         response.set_cookie(
             STATE_COOKIE,
             signing.dumps({'state': state, 'nonce': nonce, 'verifier': verifier}, salt=STATE_SALT),
