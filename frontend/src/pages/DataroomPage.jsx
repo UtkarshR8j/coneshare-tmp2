@@ -16,6 +16,7 @@ import { Button } from '../components/ui/Button';
 import { DocumentPlusIcon } from '../components/icons/DocumentPlusIcon';
 import { FolderPlusIcon } from '../components/icons/FolderPlusIcon';
 import { AddContentDialog } from '../components/dialogs/AddContentDialog';
+import { AssetsBrowserDialog } from '../components/dialogs/AssetsBrowserDialog';
 import { AddFolderDialog } from '../components/dialogs/AddFolderDialog';
 import { DataroomMoveItemsDialog } from '../components/dialogs/DataroomMoveItemsDialog';
 import { DataroomReorderItemsDialog } from '../components/dialogs/DataroomReorderItemsDialog';
@@ -76,6 +77,7 @@ export function DataroomPage() {
   const [dataroomName, setDataroomName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isAddContentOpen, setIsAddContentOpen] = useState(false);
+  const [isAssetsBrowserOpen, setIsAssetsBrowserOpen] = useState(false);
   const [isAddFolderOpen, setIsAddFolderOpen] = useState(false);
   const [isMoveItemsOpen, setIsMoveItemsOpen] = useState(false);
   const [isReorderDialogOpen, setIsReorderDialogOpen] = useState(false);
@@ -959,6 +961,8 @@ export function DataroomPage() {
   const isCollaborator = isDataroomCollaborator(dataroom, user);
   const isOrgAdmin = user?.role === 'admin';
   const canManage = isOwner || isOrgAdmin;
+  const uploadsEnabled = user?.document_uploads_enabled !== false;
+  const canUseAssets = user?.assets_browser_enabled === true;
 
   // Derived storage quota calculations with live preview support
   const currentQuotaMb = dataroom?.storage_quota_mb || 0;
@@ -1047,35 +1051,43 @@ export function DataroomPage() {
                 <Plus className="mr-2 h-4 w-4 shrink-0" />
                 <span className="text-xs sm:text-base">{t('datarooms.addContent')}</span>
               </Button>
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                  <Button className="flex items-center gap-1 sm:gap-x-2 px-3">
-                    <span className="text-xs sm:text-base">{t('documents.upload')}</span>
-                    <ChevronDown className="h-4 w-4 shrink-0" />
-                  </Button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content
-                    className="z-[9999] w-40 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800"
-                    sideOffset={8}
-                  >
-                    <DropdownMenu.Item
-                      onSelect={handleFileSelect}
-                      className="flex w-full cursor-pointer items-center gap-x-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none dark:text-gray-200 hover:dark:bg-gray-700 focus:dark:bg-gray-700"
+              {canUseAssets && (
+                <Button onClick={() => setIsAssetsBrowserOpen(true)} className="px-3">
+                  <Plus className="mr-2 h-4 w-4 shrink-0" />
+                  <span className="text-xs sm:text-base">{t('assetsBrowser.openButton')}</span>
+                </Button>
+              )}
+              {uploadsEnabled && (
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger asChild>
+                    <Button className="flex items-center gap-1 sm:gap-x-2 px-3">
+                      <span className="text-xs sm:text-base">{t('documents.upload')}</span>
+                      <ChevronDown className="h-4 w-4 shrink-0" />
+                    </Button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content
+                      className="z-[9999] w-40 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800"
+                      sideOffset={8}
                     >
-                      <DocumentPlusIcon className="h-5 w-5" aria-hidden="true" />
-                      <span>{t('documents.files')}</span>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      onSelect={handleFolderSelect}
-                      className="flex w-full cursor-pointer items-center gap-x-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none dark:text-gray-200 hover:dark:bg-gray-700 focus:dark:bg-gray-700"
-                    >
-                      <FolderPlusIcon className="h-5 w-5" aria-hidden="true" />
-                      <span>{t('documents.folder')}</span>
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
+                      <DropdownMenu.Item
+                        onSelect={handleFileSelect}
+                        className="flex w-full cursor-pointer items-center gap-x-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none dark:text-gray-200 hover:dark:bg-gray-700 focus:dark:bg-gray-700"
+                      >
+                        <DocumentPlusIcon className="h-5 w-5" aria-hidden="true" />
+                        <span>{t('documents.files')}</span>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        onSelect={handleFolderSelect}
+                        className="flex w-full cursor-pointer items-center gap-x-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none dark:text-gray-200 hover:dark:bg-gray-700 focus:dark:bg-gray-700"
+                      >
+                        <FolderPlusIcon className="h-5 w-5" aria-hidden="true" />
+                        <span>{t('documents.folder')}</span>
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
+              )}
             </>
           )}
           {activeTab === 'links' && (
@@ -1163,7 +1175,7 @@ export function DataroomPage() {
               showIndex={showFileIndex}
               onItemClick={handleItemClick}
               onItemSelect={handleItemSelect}
-              onFilesDrop={handleFileUploads}
+              onFilesDrop={uploadsEnabled ? handleFileUploads : undefined}
               selectedDocuments={selection.documents}
               selectedFolders={selection.folders}
               onSort={handleSort}
@@ -1857,6 +1869,13 @@ export function DataroomPage() {
         isOpen={isAddContentOpen}
         onOpenChange={setIsAddContentOpen}
         onConfirm={handleAddContent}
+      />
+      <AssetsBrowserDialog
+        isOpen={isAssetsBrowserOpen}
+        onOpenChange={setIsAssetsBrowserOpen}
+        dataroomId={dataroomId}
+        destinationFolderId={currentFolderId}
+        onAdded={fetchContent}
       />
       <AddFolderDialog
         isOpen={isAddFolderOpen}

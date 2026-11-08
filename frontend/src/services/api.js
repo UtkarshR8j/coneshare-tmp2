@@ -555,6 +555,19 @@ export const importCloudVersion = (documentId, { connectionId, fileId, fileName,
     file_size: fileSize,
   });
 
+// Assets browser (read-only view of OpenCloud)
+export const getAssetSpaces = () => api.get('/assets/spaces/');
+export const browseAssets = (spaceId, path = '') =>
+  api.get('/assets/browse/', { params: { space_id: spaceId, path } });
+export const searchAssets = (q, spaceId = null) =>
+  api.get('/assets/search/', { params: { q, ...(spaceId ? { space_id: spaceId } : {}) } });
+export const previewAsset = (spaceId, path) =>
+  api.get('/assets/preview/', { params: { space_id: spaceId, path }, responseType: 'blob' });
+export const addAssetsToDataroom = (dataroomId, items, destinationFolderId = null) =>
+  api.post(`/datarooms/${dataroomId}/assets/add/`, { items, destination_folder_id: destinationFolderId });
+export const getAssetSnapshots = (dataroomId, ids = []) =>
+  api.get(`/datarooms/${dataroomId}/assets/snapshots/`, { params: ids.length ? { ids: ids.join(',') } : {} });
+
 // Datarooms
 export const getDatarooms = (params) => api.get('/datarooms/', { params });
 export const getDataroom = (id, params) => api.get(`/datarooms/${id}/`, { params });
