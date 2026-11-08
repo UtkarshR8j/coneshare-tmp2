@@ -163,9 +163,11 @@ def list_dir(space_id, rel_path):
     return sorted(items, key=lambda i: (i['type'] != 'folder', i['name'].lower()))
 
 
-def search(query, space_id=None, limit=200):
+def search(query, space_id=None, limit=200, space_ids=None):
+    """space_ids, when given, is the exact list of spaces to walk (callers pass the org binding)."""
     needle = query.lower()
-    space_ids = [space_id] if space_id else [s['id'] for s in list_spaces()]
+    if space_ids is None:
+        space_ids = [space_id] if space_id else [s['id'] for s in list_spaces()]
     results, scanned = [], 0
     for sid in space_ids:
         stack = [(_space_dir(sid), '')]

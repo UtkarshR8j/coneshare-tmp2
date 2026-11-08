@@ -6,6 +6,14 @@ from assetbrowser.models import AssetSnapshot
 from core.models import APIKey
 
 
+@pytest.fixture(autouse=True)
+def bound_org(organization):
+    """These tests cover browsing itself, so the org owns every space in the fake tree."""
+    organization.oc_space_ids = ['users:user-1', 'projects:proj-1']
+    organization.save(update_fields=['oc_space_ids'])
+    return organization
+
+
 @pytest.fixture
 def fs():
     with patch('assetbrowser.services.fileserver_client') as client:

@@ -30,8 +30,24 @@ class IsInteractiveUser(permissions.BasePermission):
         return not isinstance(request.auth, APIKey)
 
 
+def _bound_space_ids(organization):
+    """The org's OpenCloud space binding. Anything malformed counts as no binding (fail closed)."""
+    ids = getattr(organization, 'oc_space_ids', None)
+    if not isinstance(ids, list):
+        return frozenset()
+    return frozenset(i for i in ids if isinstance(i, str) and i)
+
+
 class AssetsBaseView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdmin, IsInteractiveUser]
+
+    def allowed_space_ids(self):
+        return _bound_space_ids(self.request.user.organization)
+
+    def require_space(self, space_id):
+        """Out-of-binding spaces look exactly like missing ones, so nothing leaks about other orgs."""
+        if space_id not in self.allowed_space_ids():
+            raise scanner.AssetNotFound('Space not found.')
 
     def handle_exception(self, exc):
         if isinstance(exc, scanner.AssetsNotConfigured):
@@ -46,7 +62,10 @@ class AssetsBaseView(APIView):
 @extend_schema(tags=['assets'])
 class AssetSpacesView(AssetsBaseView):
     def get(self, request):
-        return Response(scanner.list_spaces())
+        allowed = self.allowed_space_ids()
+        if not allowed:
+            return Response([])
+        return Response([s for s in scanner.list_spaces() if s['id'] in allowed])
 
 
 @extend_schema(tags=['assets'])
@@ -54,6 +73,7 @@ class AssetBrowseView(AssetsBaseView):
     def get(self, request):
         space_id = request.query_params.get('space_id', '')
         path = request.query_params.get('path', '')
+        self.require_space(space_id)
         return Response({'space_id': space_id, 'path': path, 'items': scanner.list_dir(space_id, path)})
 
 
@@ -67,7 +87,16 @@ class AssetSearchView(AssetsBaseView):
             limit = min(int(request.query_params.get('limit', 200)), MAX_SEARCH_LIMIT)
         except ValueError:
             return Response({'detail': 'limit must be a number.'}, status=status.HTTP_400_BAD_REQUEST)
-        items, truncated = scanner.search(query, request.query_params.get('space_id') or None, max(limit, 1))
+        space_id = request.query_params.get('space_id') or None
+        if space_id:
+            self.require_space(space_id)
+            space_ids = [space_id]
+        else:
+            allowed = self.allowed_space_ids()
+            space_ids = [s['id'] for s in scanner.list_spaces() if s['id'] in allowed] if allowed else []
+        if not space_ids:
+            return Response({'items': [], 'truncated': False})
+        items, truncated = scanner.search(query, limit=max(limit, 1), space_ids=space_ids)
         return Response({'items': items, 'truncated': truncated})
 
 
@@ -76,6 +105,7 @@ class AssetPreviewView(AssetsBaseView):
     def get(self, request):
         space_id = request.query_params.get('space_id', '')
         path = request.query_params.get('path', '')
+        self.require_space(space_id)
         name = posixpath.basename(path)
         content_type = mimetypes.guess_type(name)[0]
         if content_type not in PREVIEW_CONTENT_TYPES:
@@ -107,6 +137,17 @@ class DataroomAssetsAddView(AssetsBaseView):
             folder = DataroomFolder.objects.filter(id=data['destination_folder_id'], dataroom=room).first()
             if folder is None:
                 return Response({'detail': 'Destination folder does not belong to this dataroom.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # The space wall: publishing into a room is a new authorization decision, so every
+        # item must come from a space bound to the room's org. A guest admin from another org
+        # is also held to their own binding. Checked before any filesystem work.
+        allowed = _bound_space_ids(room.organization) & self.allowed_space_ids()
+        for item in data['items']:
+            if item['space_id'] not in allowed:
+                return Response(
+                    {'detail': 'One or more files come from a space that is not linked to this organization.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         # Validate the whole batch first, so a bad item queues nothing.
         for item in data['items']:
