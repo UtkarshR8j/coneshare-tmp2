@@ -32,8 +32,9 @@ from drf_spectacular.utils import extend_schema, inline_serializer
 
 from backend.utils import get_client_ip
 from core.i18n_utils import resolve_email_language
+from core.models import User
 from core.services import get_dynamic_setting
-from datarooms.models import (DataroomDocument, DataroomFolder, DataroomItemOrder)
+from datarooms.models import (DataroomCollaborator, DataroomDocument, DataroomFolder, DataroomItemOrder)
 from datarooms.serializers import (PublicDataroomDocumentSerializer,
                                    PublicDataroomFolderSerializer,
                                    build_dataroom_branding_context)
@@ -213,7 +214,54 @@ def _get_active_share_link(slug: str) -> ShareLink:
         # Treat inactive links or links targeting soft-deleted documents as "not found"
         raise NotFound(detail="This link is not available.")
 
+    if link.audience_mode != ShareLink.AUDIENCE_ANYONE:
+        # Restricted audiences are checked on the email form, so never let a stale
+        # requires_email=False row skip it (e.g. rows written with queryset.update()).
+        link.requires_email = True
+
     return link
+
+
+AUDIENCE_RESTRICTED_MESSAGE = "This link is restricted to specific recipients."
+
+
+def _link_audience_dataroom_ids(link: ShareLink) -> list:
+    """The room(s) whose collaborators make up a link's audience. A document link resolves via
+    the rooms that hold the document, within the document's own organization."""
+    if link.dataroom_id:
+        return [link.dataroom_id]
+    return list(
+        DataroomDocument.objects.filter(
+            document_id=link.document_id,
+            dataroom__organization_id=link.document.organization_id,
+        ).values_list('dataroom_id', flat=True).distinct()
+    )
+
+
+def _is_email_in_link_audience(link: ShareLink, email: str) -> bool:
+    """Gate for ShareLink.audience_mode. Unknown modes and missing targets fail closed."""
+    mode = link.audience_mode
+    if mode == ShareLink.AUDIENCE_ANYONE:
+        return True
+    email = (email or '').strip()
+    if not email:
+        return False
+    if mode == ShareLink.AUDIENCE_ORG:
+        organization_id = link.organization_id
+        if not organization_id:
+            return False
+        return User.objects.filter(organization_id=organization_id, is_active=True, email__iexact=email).exists()
+    if mode == ShareLink.AUDIENCE_COLLABORATORS:
+        dataroom_ids = _link_audience_dataroom_ids(link)
+        if not dataroom_ids:
+            return False
+        return DataroomCollaborator.objects.filter(
+            dataroom_id__in=dataroom_ids, user__is_active=True, user__email__iexact=email,
+        ).exists()
+    if mode == ShareLink.AUDIENCE_ALLOWLIST:
+        allowed = link.audience_emails if isinstance(link.audience_emails, list) else []
+        return email.lower() in {e.strip().lower() for e in allowed if isinstance(e, str)}
+    return False
 
 
 def _is_nda_accepted(link: ShareLink, request, auth_status) -> bool:
@@ -1844,7 +1892,7 @@ class ShareLinkRequestAccessView(APIView):
 
     @extend_schema(
         request=ShareLinkEmailSerializer,
-        responses={200: dict, 400: dict, 404: dict, 500: dict},
+        responses={200: dict, 400: dict, 403: dict, 404: dict, 500: dict},
     )
     def post(self, request, slug, *args, **kwargs):
         try:
@@ -1863,6 +1911,15 @@ class ShareLinkRequestAccessView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         email = serializer.validated_data['email']
+
+        # Audience gate. Runs before both the instant-grant and the magic-link branch, and
+        # before a Viewer row is created. The message never says whether the address is listed.
+        if not _is_email_in_link_audience(link, email):
+            logger.warning(
+                "Share link %s rejected an access request outside its '%s' audience.",
+                link.id, link.audience_mode,
+            )
+            return Response({"message": AUDIENCE_RESTRICTED_MESSAGE}, status=status.HTTP_403_FORBIDDEN)
 
         # Ensure viewer record exists for tracking purposes
         if link.document:
@@ -1983,6 +2040,15 @@ class ShareLinkConfirmAccessView(APIView):
                 verification = EmailVerificationToken.objects.select_for_update().get(token=token)
                 if verification.is_expired() or verification.share_link != link:
                     return Response({"message": "The verification link has expired or is invalid."}, status=status.HTTP_400_BAD_REQUEST)
+
+                # The audience may have been narrowed after this token was sent.
+                if not _is_email_in_link_audience(link, verification.email):
+                    verification.delete()
+                    logger.warning(
+                        "Share link %s rejected a verification confirm outside its '%s' audience.",
+                        link.id, link.audience_mode,
+                    )
+                    return Response({"message": AUDIENCE_RESTRICTED_MESSAGE}, status=status.HTTP_403_FORBIDDEN)
 
                 # Authorize the session
                 authorized_links = request.session.get('authorized_share_links', {})

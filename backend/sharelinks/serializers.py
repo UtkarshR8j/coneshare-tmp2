@@ -310,6 +310,7 @@ class ShareLinkSerializer(serializers.ModelSerializer):
     dataroom_name = serializers.CharField(source='dataroom.name', read_only=True, allow_null=True)
     last_viewed_at = serializers.SerializerMethodField()
     has_accepted_current_nda = serializers.SerializerMethodField()
+    audience_emails = serializers.ListField(child=serializers.EmailField(), required=False, allow_empty=True)
 
     def get_has_accepted_current_nda(self, obj) -> bool:
         request = self.context.get('request')
@@ -392,6 +393,8 @@ class ShareLinkSerializer(serializers.ModelSerializer):
             if document.is_download_only:
                 data['allow_download'] = True
 
+        self._validate_audience(data)
+
         if enable_watermark:
             watermark_text = data.get('watermark_text', self.instance.watermark_text if self.instance else '')
             if not watermark_text or not watermark_text.strip():
@@ -416,6 +419,28 @@ class ShareLinkSerializer(serializers.ModelSerializer):
 
         return data
 
+    def _validate_audience(self, data):
+        """
+        - 'allowlist' needs at least one email; emails are stored lowercase and de-duplicated.
+        - Every other mode clears the list.
+        - Any restricted mode forces requires_email, since the gate runs on the email form.
+        """
+        default_mode = self.instance.audience_mode if self.instance else ShareLink.AUDIENCE_ANYONE
+        mode = data.get('audience_mode', default_mode)
+        if mode == ShareLink.AUDIENCE_ALLOWLIST:
+            default_emails = self.instance.audience_emails if self.instance else []
+            emails = data.get('audience_emails', default_emails) or []
+            emails = list(dict.fromkeys(e.strip().lower() for e in emails if e and e.strip()))
+            if not emails:
+                raise serializers.ValidationError(
+                    {'audience_emails': 'Add at least one email address for an allowlist link.'}
+                )
+            data['audience_emails'] = emails
+        else:
+            data['audience_emails'] = []
+        if mode != ShareLink.AUDIENCE_ANYONE:
+            data['requires_email'] = True
+
     created_by_user = serializers.SerializerMethodField()
 
     @extend_schema_field(serializers.DictField(allow_null=True))
@@ -438,7 +463,8 @@ class ShareLinkSerializer(serializers.ModelSerializer):
             'id', 'document', 'dataroom', 'document_name', 'document_type', 'dataroom_name', 'dataroom_settings', 'created_by', 'created_by_user', 'name', 'slug', 'url', 'expires_at',
             'has_password', 'password', 'requires_email', 'requires_email_verification', 'allow_download', 'enable_qna',
             'enable_watermark', 'watermark_text', 'receive_email_notification', 'is_active', 'created_at', 'updated_at',
-            'view_count', 'recent_view_sessions', 'last_viewed_at', 'require_nda', 'nda_text', 'nda_version', 'has_accepted_current_nda'
+            'view_count', 'recent_view_sessions', 'last_viewed_at', 'require_nda', 'nda_text', 'nda_version', 'has_accepted_current_nda',
+            'audience_mode', 'audience_emails',
         ]
         read_only_fields = [
             'id', 'created_by', 'created_by_user', 'slug', 'url', 'created_at', 'updated_at', 'document_name', 'document_type', 'nda_version', 'has_accepted_current_nda'

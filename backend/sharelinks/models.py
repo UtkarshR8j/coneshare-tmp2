@@ -33,6 +33,17 @@ class ShareLinkTemplate(BaseModel):
 
 
 class ShareLink(BaseModel):
+    AUDIENCE_ANYONE = 'anyone'
+    AUDIENCE_ORG = 'org'
+    AUDIENCE_COLLABORATORS = 'collaborators'
+    AUDIENCE_ALLOWLIST = 'allowlist'
+    AUDIENCE_CHOICES = (
+        (AUDIENCE_ANYONE, 'Anyone with the link'),
+        (AUDIENCE_ORG, 'Organization members'),
+        (AUDIENCE_COLLABORATORS, 'Room collaborators'),
+        (AUDIENCE_ALLOWLIST, 'Email allowlist'),
+    )
+
     document = models.ForeignKey('documents.Document', on_delete=models.CASCADE, null=True, blank=True, related_name='share_links')
     dataroom = models.ForeignKey('datarooms.Dataroom', on_delete=models.CASCADE, null=True, blank=True, related_name='share_links')
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='share_links_created')
@@ -51,6 +62,9 @@ class ShareLink(BaseModel):
     require_nda = models.BooleanField(default=False)
     nda_text = models.TextField(blank=True, default='')
     nda_version = models.IntegerField(default=1)
+    audience_mode = models.CharField(max_length=20, choices=AUDIENCE_CHOICES, default=AUDIENCE_ANYONE)
+    # Lowercase emails, only used when audience_mode is 'allowlist'.
+    audience_emails = models.JSONField(default=list, blank=True)
 
     class Meta:
         constraints = [
@@ -100,6 +114,11 @@ class ShareLink(BaseModel):
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = secrets.token_urlsafe(16)
+        if self.audience_mode != self.AUDIENCE_ANYONE and not self.requires_email:
+            # The audience gate runs on the email form, so a restricted link must always ask for one.
+            self.requires_email = True
+            if kwargs.get('update_fields') is not None:
+                kwargs['update_fields'] = list(set(kwargs['update_fields']) | {'requires_email'})
         if self.pk:
             update_fields = kwargs.get('update_fields')
             if update_fields is None or 'nda_text' in update_fields:
