@@ -1,0 +1,20 @@
+# Read-only view of OpenCloud user trees. Never add :z/:Z here - relabeling would write
+# xattrs into OpenCloud's tree. create_host_path:false makes a typo fail instead of
+# silently creating an empty directory.
+services:
+  backend:
+    volumes: &assets_ro
+      - type: bind
+        source: ${ASSETS_RO_SOURCE:?set ASSETS_RO_SOURCE to OpenCloud storage/users}/users
+        target: /assets-ro/users
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${ASSETS_RO_SOURCE:?set ASSETS_RO_SOURCE to OpenCloud storage/users}/projects
+        target: /assets-ro/projects
+        read_only: true
+        bind:
+          create_host_path: false
+  celery_worker:
+    volumes: *assets_ro
