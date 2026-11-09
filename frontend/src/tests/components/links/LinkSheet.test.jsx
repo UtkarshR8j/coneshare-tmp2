@@ -257,7 +257,7 @@ describe('LinkSheet', () => {
       renderComponent();
 
       expect(screen.getByLabelText(/Audience/)).toHaveValue('anyone');
-      expect(screen.queryByLabelText('Allowed emails')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Allowed emails or patterns')).not.toBeInTheDocument();
       await userEvent.click(screen.getByText('Save Changes'));
 
       expect(api.createShareLink).toHaveBeenCalledWith(expect.objectContaining({
@@ -290,7 +290,7 @@ describe('LinkSheet', () => {
       renderComponent();
 
       await userEvent.selectOptions(screen.getByLabelText(/Audience/), 'allowlist');
-      await userEvent.click(screen.getByLabelText('Allowed emails'));
+      await userEvent.click(screen.getByLabelText('Allowed emails or patterns'));
       await userEvent.paste('Alice@Example.com, bob@example.com\nalice@example.com');
       await userEvent.click(screen.getByText('Save Changes'));
 
@@ -325,7 +325,7 @@ describe('LinkSheet', () => {
       });
 
       expect(screen.getByLabelText(/Audience/)).toHaveValue('allowlist');
-      expect(screen.getByLabelText('Allowed emails')).toHaveValue('a@example.com\nb@example.com');
+      expect(screen.getByLabelText('Allowed emails or patterns')).toHaveValue('a@example.com\nb@example.com');
     });
   });
 });
