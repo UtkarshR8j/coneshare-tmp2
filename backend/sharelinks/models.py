@@ -34,13 +34,9 @@ class ShareLinkTemplate(BaseModel):
 
 class ShareLink(BaseModel):
     AUDIENCE_ANYONE = 'anyone'
-    AUDIENCE_ORG = 'org'
-    AUDIENCE_COLLABORATORS = 'collaborators'
     AUDIENCE_ALLOWLIST = 'allowlist'
     AUDIENCE_CHOICES = (
         (AUDIENCE_ANYONE, 'Anyone with the link'),
-        (AUDIENCE_ORG, 'Organization members'),
-        (AUDIENCE_COLLABORATORS, 'Room collaborators'),
         (AUDIENCE_ALLOWLIST, 'Email allowlist'),
     )
 

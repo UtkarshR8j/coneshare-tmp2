@@ -3,12 +3,14 @@ from datetime import datetime
 from urllib.parse import urljoin
 
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from core.models import Organization
 from datarooms.models import Dataroom
+from .audience import normalize_entries
 from .models import (DataroomVisit, PageView, ShareLink,
                      QnAMessage, QnAThread,
                      ShareLinkDataroomSetting, ShareLinkTemplate, Viewer,
@@ -310,7 +312,7 @@ class ShareLinkSerializer(serializers.ModelSerializer):
     dataroom_name = serializers.CharField(source='dataroom.name', read_only=True, allow_null=True)
     last_viewed_at = serializers.SerializerMethodField()
     has_accepted_current_nda = serializers.SerializerMethodField()
-    audience_emails = serializers.ListField(child=serializers.EmailField(), required=False, allow_empty=True)
+    audience_emails = serializers.ListField(child=serializers.CharField(max_length=254, allow_blank=True), required=False, allow_empty=True)
 
     def get_has_accepted_current_nda(self, obj) -> bool:
         request = self.context.get('request')
@@ -430,7 +432,10 @@ class ShareLinkSerializer(serializers.ModelSerializer):
         if mode == ShareLink.AUDIENCE_ALLOWLIST:
             default_emails = self.instance.audience_emails if self.instance else []
             emails = data.get('audience_emails', default_emails) or []
-            emails = list(dict.fromkeys(e.strip().lower() for e in emails if e and e.strip()))
+            try:
+                emails = normalize_entries(emails)
+            except DjangoValidationError as exc:
+                raise serializers.ValidationError({'audience_emails': exc.messages})
             if not emails:
                 raise serializers.ValidationError(
                     {'audience_emails': 'Add at least one email address for an allowlist link.'}

@@ -21,7 +21,7 @@ import {
 import { Switch } from '../ui/Switch';
 import { PasswordInput } from '../ui/PasswordInput';
 
-const AUDIENCE_MODES = ['anyone', 'org', 'collaborators', 'allowlist'];
+const AUDIENCE_MODES = ['anyone', 'allowlist'];
 
 // Accepts emails separated by commas, semicolons, or whitespace; returns a lowercase de-duplicated list.
 function parseAudienceEmails(text) {
@@ -227,8 +227,6 @@ export function LinkSheet({
                 }}
               >
                 <option value="anyone">{t('linkSheet.audienceAnyone')}</option>
-                <option value="org">{t('linkSheet.audienceOrg')}</option>
-                <option value="collaborators">{t('linkSheet.audienceCollaborators')}</option>
                 <option value="allowlist">{t('linkSheet.audienceAllowlist')}</option>
               </Select>
             </div>

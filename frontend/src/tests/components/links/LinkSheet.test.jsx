@@ -271,14 +271,16 @@ describe('LinkSheet', () => {
       api.createShareLink.mockResolvedValue({});
       renderComponent();
 
-      await userEvent.selectOptions(screen.getByLabelText(/Audience/), 'org');
+      await userEvent.selectOptions(screen.getByLabelText(/Audience/), 'allowlist');
+      await userEvent.click(screen.getByLabelText('Allowed emails or patterns'));
+      await userEvent.paste('partner@acme.com');
       expect(screen.getByLabelText(/Require email to view/)).toBeChecked();
       expect(screen.getByLabelText(/Require email to view/)).toBeDisabled();
       await userEvent.click(screen.getByText('Save Changes'));
 
       expect(api.createShareLink).toHaveBeenCalledWith(expect.objectContaining({
-        audience_mode: 'org',
-        audience_emails: [],
+        audience_mode: 'allowlist',
+        audience_emails: ['partner@acme.com'],
         requires_email: true,
       }));
     });

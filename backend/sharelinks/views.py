@@ -34,7 +34,7 @@ from backend.utils import get_client_ip
 from core.i18n_utils import resolve_email_language
 from core.models import User
 from core.services import get_dynamic_setting
-from datarooms.models import (DataroomCollaborator, DataroomDocument, DataroomFolder, DataroomItemOrder)
+from datarooms.models import (DataroomDocument, DataroomFolder, DataroomItemOrder)
 from datarooms.serializers import (PublicDataroomDocumentSerializer,
                                    PublicDataroomFolderSerializer,
                                    build_dataroom_branding_context)
@@ -47,6 +47,7 @@ from core.pagination import StandardResultsSetPagination
 from documents.renderers import get_renderer
 from documents.views import prepare_pages_data
 from automations.tasks import dispatch_automation_event_task
+from .audience import email_matches
 from .models import (DataroomVisit, EmailVerificationToken, PreviewSession,
                      QnAMessage, QnAThread, ShareLink,
                      ShareLinkDataroomSetting, ShareLinkTemplate, Viewer,
@@ -225,19 +226,6 @@ def _get_active_share_link(slug: str) -> ShareLink:
 AUDIENCE_RESTRICTED_MESSAGE = "This link is restricted to specific recipients."
 
 
-def _link_audience_dataroom_ids(link: ShareLink) -> list:
-    """The room(s) whose collaborators make up a link's audience. A document link resolves via
-    the rooms that hold the document, within the document's own organization."""
-    if link.dataroom_id:
-        return [link.dataroom_id]
-    return list(
-        DataroomDocument.objects.filter(
-            document_id=link.document_id,
-            dataroom__organization_id=link.document.organization_id,
-        ).values_list('dataroom_id', flat=True).distinct()
-    )
-
-
 def _is_email_in_link_audience(link: ShareLink, email: str) -> bool:
     """Gate for ShareLink.audience_mode. Unknown modes and missing targets fail closed."""
     mode = link.audience_mode
@@ -246,21 +234,9 @@ def _is_email_in_link_audience(link: ShareLink, email: str) -> bool:
     email = (email or '').strip()
     if not email:
         return False
-    if mode == ShareLink.AUDIENCE_ORG:
-        organization_id = link.organization_id
-        if not organization_id:
-            return False
-        return User.objects.filter(organization_id=organization_id, is_active=True, email__iexact=email).exists()
-    if mode == ShareLink.AUDIENCE_COLLABORATORS:
-        dataroom_ids = _link_audience_dataroom_ids(link)
-        if not dataroom_ids:
-            return False
-        return DataroomCollaborator.objects.filter(
-            dataroom_id__in=dataroom_ids, user__is_active=True, user__email__iexact=email,
-        ).exists()
     if mode == ShareLink.AUDIENCE_ALLOWLIST:
         allowed = link.audience_emails if isinstance(link.audience_emails, list) else []
-        return email.lower() in {e.strip().lower() for e in allowed if isinstance(e, str)}
+        return email_matches(email, allowed)
     return False
 
 
